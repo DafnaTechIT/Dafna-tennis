@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>מגרשי הטניס בדפנה</title>
+<style>
+:root{--bg:#f6f4ee;--card:#fff;--ink:#1d2a22;--mute:#6b766f;--line:#e2dfd3;--green:#2f7d4f;--greenbg:#e4f2ea;--red:#b4443a;--redbg:#f8e6e3;--clay:#c8643c;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141a16;--card:#1d2620;--ink:#eef2ee;--mute:#9aa79f;--line:#2c3830;--green:#6cc58f;--greenbg:#1f3a2b;--red:#e58a80;--redbg:#3d2420;--clay:#e08a63;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#141a16;--card:#1d2620;--ink:#eef2ee;--mute:#9aa79f;--line:#2c3830;--green:#6cc58f;--greenbg:#1f3a2b;--red:#e58a80;--redbg:#3d2420;--clay:#e08a63;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Heebo","Assistant",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;line-height:1.4}
+main{max-width:560px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:4px 0 2px}
+.sub{color:var(--mute);font-size:14px;margin:0 0 14px}
+.row{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px}
+.chip{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;text-align:center;min-width:64px}
+.chip small{display:block;color:var(--mute);font-size:12px}
+.chip.on{background:var(--green);border-color:var(--green);color:#fff}
+.chip.on small{color:#e8f5ee}
+.slot{display:flex;align-items:center;justify-content:space-between;width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:12px 14px;margin-bottom:8px;font:inherit;font-size:15px;text-align:start}
+.slot .t{font-weight:600;direction:ltr}
+.free{border-color:var(--green);background:var(--greenbg);cursor:pointer}
+.busy{border-color:transparent;background:var(--redbg);color:var(--red)}
+.past{opacity:.45}
+.tag{font-size:13px}
+:root{--yelbg:#fbf0c8;--yeltx:#8a6a00;--yel:#e0b100}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--yelbg:#3d3414;--yeltx:#f0cf6a;--yel:#e0b100}}
+:root[data-theme="dark"]{--yelbg:#3d3414;--yeltx:#f0cf6a;--yel:#e0b100}
+.seek{border-color:var(--yel);background:var(--yelbg);color:var(--yeltx)}
+:root{--blue:#2f6fb0;--bluebg:#e1ecf8;--bluetx:#1f528a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--blue:#6aa6e8;--bluebg:#1c2e45;--bluetx:#9cc3f0}}
+:root[data-theme="dark"]{--blue:#6aa6e8;--bluebg:#1c2e45;--bluetx:#9cc3f0}
+.block{border-color:transparent;background:var(--bluebg);color:var(--bluetx)}
+.slot u.blu{background:var(--blue);color:var(--card)}
+select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--bg);color:var(--ink)}
+.req{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:-4px 0 8px;padding:8px 12px;border:1px dashed var(--green);border-radius:12px;font-size:14px}
+.req u,.wl u{text-decoration:none;background:var(--red);color:var(--card);border-radius:8px;padding:2px 8px;margin-inline-start:6px;font-weight:600;cursor:pointer}
+.slot u{cursor:pointer}
+.slot u.ok,.req u.ok,.wl u.ok{background:var(--green)}
+h2{font-size:17px;margin:22px 0 4px}
+.wl{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);margin-bottom:8px;font-size:14px}
+.wl a,.req a{color:var(--green)}
+.slot u{text-decoration:none;background:var(--red);color:var(--card);border-radius:8px;padding:2px 8px;margin-inline-start:6px;font-weight:600}
+.legend{display:flex;gap:14px;font-size:13px;color:var(--mute);margin:4px 0 12px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-inline-end:5px}
+.note{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;color:var(--mute);margin-top:14px}
+dialog{border:none;border-radius:16px;padding:18px;width:min(92vw,420px);background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+label{display:block;font-size:14px;margin:10px 0 4px}
+input[type=text],input[type=tel]{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--bg);color:var(--ink)}
+.chk{display:flex;gap:8px;align-items:center;margin:12px 0}
+.btns{display:flex;gap:8px;margin-top:14px}
+.btn{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;cursor:pointer}
+.btn.pri{background:var(--clay);border-color:var(--clay);color:#fff;font-weight:600}
+.err{color:var(--red);font-size:13px;min-height:18px;margin-top:6px}
+</style>
+</head>
+<body>
+<main>
+  <h1>🎾 מגרשי הטניס בדפנה</h1>
+  <p class="sub">הזמנה של 60 דקות, עד שבוע מראש. חינם לתושבי דפנה.</p>
+  <div class="row" id="days"></div>
+  <div class="row" id="courts"></div>
+  <div class="legend"><span><i class="dot" style="background:var(--green)"></i>פנוי</span><span><i class="dot" style="background:var(--red)"></i>תפוס</span><span><i class="dot" style="background:var(--yel)"></i>מחפש שותף</span><span><i class="dot" style="background:var(--blue)"></i>חוג</span></div>
+  <div id="slots"></div>
+  <h2>רוצים לשחק? מחפשים שותף</h2>
+  <p class="sub">מי שרוצה לשחק ועדיין אין לו שעה או שותף. מי ששריין שעה ומחפש שותף יכול לפנות אליכם.</p>
+  <div id="wlist"></div>
+  <button class="btn pri" id="wAdd" type="button" style="width:100%">הוסיפו אותי לרשימה</button>
+  <button class="btn" id="rAdm" type="button" style="width:100%;margin-top:10px;display:none">⚙ ניהול חוגים קבועים (מנהל)</button>
+  <div class="note" id="note"></div>
+  <div style="text-align:center;margin-top:12px"><a href="#" id="aBtn" style="font-size:13px;color:var(--mute)">כניסת מנהל</a></div>
+</main>
+
+<dialog id="dlg">
+  <b id="dTitle"></b>
+  <label for="fName">שם מלא</label><input type="text" id="fName" autocomplete="name">
+  <label for="fPhone">טלפון</label><input type="tel" id="fPhone" autocomplete="tel" dir="ltr">
+  <div class="chk"><input type="checkbox" id="fRes"><label for="fRes" style="margin:0">אני תושב/ת דפנה</label></div>
+  <div class="chk"><input type="checkbox" id="fSeek"><label for="fSeek" style="margin:0">אני מחפש/ת שותף/ה למשחק</label></div>
+  <div id="fPrice" style="font-size:13px;color:var(--mute)"></div>
+  <div class="err" id="err"></div>
+  <div class="btns"><button class="btn" id="bCancel" type="button">ביטול</button><button class="btn pri" id="bOk" type="button">הזמנה</button></div>
+</dialog>
+
+<dialog id="jdlg">
+  <b>בקשה להצטרף למשחק</b>
+  <label for="jName">שם מלא</label><input type="text" id="jName">
+  <label for="jPhone">טלפון</label><input type="tel" id="jPhone" dir="ltr">
+  <div class="err" id="jErr"></div>
+  <div class="btns"><button class="btn" id="jCancel" type="button">ביטול</button><button class="btn pri" id="jOk" type="button">שליחת בקשה</button></div>
+</dialog>
+
+<dialog id="wdlg">
+  <b>הוספה לרשימת מחפשי משחק</b>
+  <label for="wName">שם מלא</label><input type="text" id="wName">
+  <label for="wPhone">טלפון</label><input type="tel" id="wPhone" dir="ltr">
+  <label for="wNote">מתי נוח לכם? (לא חובה)</label><input type="text" id="wNote" placeholder="למשל: ערבים, שישי בבוקר">
+  <div class="err" id="wErr"></div>
+  <div class="btns"><button class="btn" id="wCancel" type="button">ביטול</button><button class="btn pri" id="wOk" type="button">הוספה</button></div>
+</dialog>
+
+<dialog id="rdlg">
+  <b>חוגים קבועים</b>
+  <p class="sub">השעות האלה ייחסמו להזמנות בכל שבוע. אפשר לשחרר תאריך בודד מתוך הלוח.</p>
+  <div id="rlist"></div>
+  <label for="rDay">יום</label><select id="rDay"></select>
+  <label for="rFrom">משעה</label><select id="rFrom"></select>
+  <label for="rTo">עד שעה</label><select id="rTo"></select>
+  <label for="rLabel">שם החוג</label><input type="text" id="rLabel" placeholder="למשל: חוג ילדים">
+  <div class="err" id="rErr"></div>
+  <div class="btns"><button class="btn" id="rClose" type="button">סגירה</button><button class="btn pri" id="rAddBtn" type="button">הוספה</button></div>
+</dialog>
+
+<dialog id="adlg">
+  <b>כניסת מנהל</b>
+  <label for="aPass">סיסמה</label><input type="text" id="aPass" style="-webkit-text-security:disc" autocomplete="off" dir="ltr">
+  <div class="err" id="aErr"></div>
+  <div class="btns"><button class="btn" id="aCancel" type="button">ביטול</button><button class="btn pri" id="aOk" type="button">כניסה</button></div>
+</dialog>
+
+<dialog id="cdlg">
+  <b id="cTitle"></b>
+  <div class="btns"><button class="btn" id="cNo" type="button">חזרה</button><button class="btn pri" id="cYes" type="button">כן, לבטל</button></div>
+</dialog>
+
+<script>
+(function(){
+var HDAY=["א׳","ב׳","ג׳","ד׳","ה׳","ו׳","ש׳"];
+var CFG={open:7,close:22,daysAhead:7,price:100,courtName:"המגרש"};
+var S={bookings:[],joins:[],wanted:[],blocks:[],recurring:[],me:{admin:false}};
+var bm={},blm={},selDay=0,pending=null,jTarget=null,cancelId=null;
+var $=function(i){return document.getElementById(i)};
+function pad(n){return n<10?"0"+n:""+n}
+function dateKey(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
+function dayOf(i){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+i);return d}
+function bkey(dk,h){return dk+"_"+pad(h)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k)||"";localStorage.setItem(k,v)}catch(_){return ""}}
+var cid=store("dt_cid");
+if(!cid){cid=(window.crypto&&crypto.randomUUID?crypto.randomUUID():Date.now().toString(16)+Math.random().toString(16).slice(2)+"0123456789abcdef");cid=cid.replace(/[^a-f0-9-]/gi,"").slice(0,64);store("dt_cid",cid)}
+
+async function api(method,path,body){
+  var h={"Content-Type":"application/json","X-Client-Id":cid},t=store("dt_admin");
+  if(t)h["X-Admin-Token"]=t;
+  var r=await fetch(path,{method:method,headers:h,body:body?JSON.stringify(body):undefined});
+  var j={};try{j=await r.json()}catch(_){}
+  if(!r.ok)throw new Error(j.error||"שגיאה");
+  return j;
+}
+function setNote(m){$("note").textContent=m||"ההזמנות מתעדכנות אוטומטית אצל כולם. ביטול אפשרי רק להזמנה שלכם."}
+function toast(m){setNote(m);setTimeout(function(){setNote()},4000)}
+function isAdmin(){return !!S.me.admin}
+
+async function load(){
+  try{
+    S=await api("GET","/api/state");
+    if(!S.me.admin&&store("dt_admin"))store("dt_admin","");
+    bm={};S.bookings.forEach(function(b){bm[bkey(b.date,b.hour)]=b});
+    blm={};S.blocks.forEach(function(b){blm[bkey(b.date,b.hour)]=b});
+    render();
+  }catch(_){setNote("אין חיבור לשרת, מנסה שוב...")}
+}
+function blockInfo(dk,hr){
+  var bk=blm[bkey(dk,hr)];
+  if(bk)return bk.released?null:{label:bk.label||"חוג"};
+  var wd=dayOf(selDay).getDay();
+  for(var i=0;i<S.recurring.length;i++){var r=S.recurring[i];if(r.day===wd&&hr>=r.from&&hr<r.to)return{label:r.label||"חוג"}}
+  return null;
+}
+function renderDays(){
+  var h="";
+  for(var i=0;i<=CFG.daysAhead;i++){var d=dayOf(i);
+    h+='<button class="chip'+(i===selDay?' on':'')+'" data-d="'+i+'">'+(i===0?'היום':HDAY[d.getDay()])+'<small>'+d.getDate()+'/'+(d.getMonth()+1)+'</small></button>';}
+  $("days").innerHTML=h;$("courts").innerHTML="";
+}
+function renderSlots(){
+  var dk=dateKey(dayOf(selDay)),now=new Date(),h="";
+  for(var hr=CFG.open;hr<CFG.close;hr++){
+    var key=bkey(dk,hr),k=blockInfo(dk,hr),b=k?null:bm[key];
+    var past=selDay===0&&hr<now.getHours();
+    var label=pad(hr)+":00–"+pad(hr+1)+":00";
+    if(b){
+      var mine=b.mine,seek=b.seeking&&!b.partner&&!past;
+      var mj=null;S.joins.forEach(function(j){if(j.bid===key&&j.mine)mj=j});
+      var s=(seek?'שחקן מחפש שותף · ':'תפוס · ')+esc(b.name)+(b.partner?' + '+esc(b.partner):'');
+      if(mine){s+=' (אני) <u data-x="'+hr+'">ביטול</u>'}
+      else if(isAdmin()){s+=' <u data-x="'+hr+'">ביטול</u>'}
+      else if(seek){s+=(mj&&mj.status!=='declined'?'':' <u class="ok" data-j="'+hr+'">להצטרף</u>')}
+      if(mj&&!mine)s+=' · '+(mj.status==='approved'?'אושרת להצטרף 🎾':mj.status==='declined'?'הבקשה נדחתה':'הבקשה ממתינה לאישור');
+      h+='<div class="slot '+(seek?'seek':'busy')+(past?' past':'')+'"><span class="t">'+label+'</span><span class="tag">'+s+'</span></div>';
+      if((mine||isAdmin())&&b.seeking){S.joins.forEach(function(r){if(r.bid===key&&r.status==='pending'&&r.name){
+        h+='<div class="req"><span>'+esc(r.name)+' <a href="tel:'+esc(r.phone)+'">'+esc(r.phone)+'</a> רוצה להצטרף</span><span><u class="ok" data-a="'+esc(r.id)+'">אישור</u><u data-r="'+esc(r.id)+'">דחייה</u></span></div>'}})}
+    }else if(k){
+      h+='<div class="slot block'+(past?' past':'')+'"><span class="t">'+label+'</span><span class="tag">חסום · '+esc(k.label)+(isAdmin()&&!past?' <u class="blu" data-ur="'+hr+'">שחרור</u>':'')+'</span></div>';
+    }else if(past){
+      h+='<div class="slot busy past"><span class="t">'+label+'</span><span class="tag">עבר</span></div>';
+    }else{
+      h+='<button class="slot free" data-f="'+hr+'"><span class="t">'+label+'</span><span class="tag">פנוי <u class="ok">הזמנה</u></span></button>';
+    }
+  }
+  $("slots").innerHTML=h;
+}
+function renderWanted(){
+  var ws=S.wanted.slice().sort(function(a,b){return b.createdAt-a.createdAt}),h="";
+  if(!ws.length)h='<div class="sub">אף אחד עוד לא נרשם.</div>';
+  ws.forEach(function(w){h+='<div class="wl"><span><b>'+esc(w.name)+'</b>'+(w.note?' · '+esc(w.note):'')+' · <a href="tel:'+esc(w.phone)+'">'+esc(w.phone)+'</a></span>'+(w.mine||isAdmin()?'<u data-w="'+esc(w.id)+'">הסרה</u>':'')+'</div>'});
+  $("wlist").innerHTML=h;
+}
+function renderRec(){
+  var h="";
+  if(!S.recurring.length)h='<div class="sub">אין חוגים קבועים.</div>';
+  S.recurring.forEach(function(r){h+='<div class="wl"><span>יום '+HDAY[r.day]+' · '+pad(r.from)+':00–'+pad(r.to)+':00 · '+esc(r.label)+'</span><u data-rd="'+esc(r.id)+'">הסרה</u></div>'});
+  $("rlist").innerHTML=h;
+}
+function render(){
+  renderDays();renderSlots();renderWanted();renderRec();
+  $("rAdm").style.display=isAdmin()?"block":"none";
+  $("aBtn").textContent=isAdmin()?"יציאה ממצב מנהל":"כניסת מנהל";
+  if($("note").textContent.indexOf("אין חיבור")===0)setNote();
+}
+
+function fillSel(){
+  var d="",f="",t="";
+  HDAY.forEach(function(n,i){d+='<option value="'+i+'">יום '+n+'</option>'});
+  for(var h=CFG.open;h<=CFG.close;h++){var o='<option value="'+h+'">'+pad(h)+':00</option>';if(h<CFG.close)f+=o;if(h>CFG.open)t+=o}
+  $("rDay").innerHTML=d;$("rFrom").innerHTML=f;$("rTo").innerHTML=t;
+}
+
+$("days").onclick=function(e){var b=e.target.closest("[data-d]");if(b){selDay=+b.dataset.d;render()}};
+$("slots").onclick=function(e){
+  var T=e.target,f=T.closest("[data-f]"),x=T.closest("[data-x]"),j=T.closest("[data-j]"),a=T.closest("[data-a]"),r=T.closest("[data-r]"),u=T.closest("[data-ur]");
+  if(u)releaseSlot(+u.dataset.ur);
+  else if(x)askCancel(+x.dataset.x);
+  else if(j)openJoin(+j.dataset.j);
+  else if(a)answer(a.dataset.a,true);
+  else if(r)answer(r.dataset.r,false);
+  else if(f)openDlg(+f.dataset.f);
+};
+
+// הזמנה
+function openDlg(hr){
+  pending=hr;var d=dayOf(selDay);
+  $("dTitle").textContent=CFG.courtName+" · "+(selDay===0?"היום":HDAY[d.getDay()]+" "+d.getDate()+"/"+(d.getMonth()+1))+" · "+pad(hr)+":00–"+pad(hr+1)+":00";
+  $("fName").value=store("dt_name");$("fPhone").value=store("dt_phone");$("fRes").checked=store("dt_res")==="1";$("fSeek").checked=false;
+  upd();$("err").textContent="";$("dlg").showModal();
+}
+function upd(){$("fPrice").textContent=$("fRes").checked?"חינם לתושבי דפנה":"עלות לאורחים: ₪"+CFG.price+" לשעה (תשלום במקום)"}
+$("fRes").onchange=upd;
+$("bCancel").onclick=function(){$("dlg").close()};
+$("bOk").onclick=async function(){
+  var name=$("fName").value.trim(),phone=$("fPhone").value.trim(),res=$("fRes").checked;
+  if(name.length<2){$("err").textContent="נא להזין שם";return}
+  if(phone.replace(/\D/g,"").length<9){$("err").textContent="נא להזין מספר טלפון תקין";return}
+  $("bOk").disabled=true;
+  try{
+    await api("POST","/api/bookings",{date:dateKey(dayOf(selDay)),hour:pending,name:name,phone:phone,resident:res,seeking:$("fSeek").checked});
+    store("dt_name",name);store("dt_phone",phone);store("dt_res",res?"1":"0");
+    $("dlg").close();
+  }catch(e){$("err").textContent=e.message}
+  finally{$("bOk").disabled=false;load()}
+};
+
+// ביטול
+function askCancel(hr){
+  var key=bkey(dateKey(dayOf(selDay)),hr),b=bm[key];if(!b)return;
+  cancelId=key;$("cTitle").textContent="לבטל את ההזמנה של "+b.name+"?";$("cdlg").showModal();
+}
+$("cNo").onclick=function(){$("cdlg").close()};
+$("cYes").onclick=async function(){
+  $("cdlg").close();
+  try{await api("DELETE","/api/bookings/"+encodeURIComponent(cancelId))}catch(e){toast(e.message)}
+  load();
+};
+
+// הצטרפות לשחקן שמחפש שותף
+function openJoin(hr){
+  jTarget=bkey(dateKey(dayOf(selDay)),hr);
+  $("jName").value=store("dt_name");$("jPhone").value=store("dt_phone");$("jErr").textContent="";$("jdlg").showModal();
+}
+$("jCancel").onclick=function(){$("jdlg").close()};
+$("jOk").onclick=async function(){
+  var name=$("jName").value.trim(),phone=$("jPhone").value.trim();
+  if(name.length<2||phone.replace(/\D/g,"").length<9){$("jErr").textContent="נא למלא שם וטלפון תקין";return}
+  try{await api("POST","/api/joins",{bid:jTarget,name:name,phone:phone});store("dt_name",name);store("dt_phone",phone);$("jdlg").close();toast("הבקשה נשלחה. המזמין יאשר או ידחה.")}
+  catch(e){$("jErr").textContent=e.message}
+  load();
+};
+async function answer(id,ok){
+  try{await api("POST","/api/joins/"+encodeURIComponent(id)+"/answer",{approve:ok})}catch(e){toast(e.message)}
+  load();
+}
+
+// רשימת "רוצים לשחק"
+$("wAdd").onclick=function(){$("wName").value=store("dt_name");$("wPhone").value=store("dt_phone");$("wErr").textContent="";$("wdlg").showModal()};
+$("wCancel").onclick=function(){$("wdlg").close()};
+$("wOk").onclick=async function(){
+  var name=$("wName").value.trim(),phone=$("wPhone").value.trim();
+  if(name.length<2||phone.replace(/\D/g,"").length<9){$("wErr").textContent="נא למלא שם וטלפון תקין";return}
+  try{await api("POST","/api/wanted",{name:name,phone:phone,note:$("wNote").value.trim()});store("dt_name",name);store("dt_phone",phone);$("wdlg").close()}
+  catch(e){$("wErr").textContent=e.message}
+  load();
+};
+$("wlist").onclick=async function(e){
+  var u=e.target.closest("[data-w]");if(!u)return;
+  try{await api("DELETE","/api/wanted/"+encodeURIComponent(u.dataset.w))}catch(er){toast(er.message)}
+  load();
+};
+
+// מנהל
+$("aBtn").onclick=function(e){
+  e.preventDefault();
+  if(isAdmin()){store("dt_admin","");S.me.admin=false;render();return}
+  $("aPass").value="";$("aErr").textContent="";$("adlg").showModal();
+};
+$("aCancel").onclick=function(){$("adlg").close()};
+$("aOk").onclick=async function(){
+  try{var r=await api("POST","/api/admin/login",{password:$("aPass").value});store("dt_admin",r.token);$("adlg").close()}
+  catch(e){$("aErr").textContent=e.message}
+  load();
+};
+async function releaseSlot(hr){
+  try{await api("POST","/api/blocks/release",{date:dateKey(dayOf(selDay)),hour:hr})}catch(e){toast(e.message)}
+  load();
+}
+$("rAdm").onclick=function(){$("rErr").textContent="";renderRec();$("rdlg").showModal()};
+$("rClose").onclick=function(){$("rdlg").close()};
+$("rlist").onclick=async function(e){
+  var u=e.target.closest("[data-rd]");if(!u)return;
+  try{await api("DELETE","/api/recurring/"+encodeURIComponent(u.dataset.rd))}catch(er){$("rErr").textContent=er.message}
+  load();
+};
+$("rAddBtn").onclick=async function(){
+  var from=+$("rFrom").value,to=+$("rTo").value;
+  if(to<=from){$("rErr").textContent="שעת הסיום צריכה להיות אחרי שעת ההתחלה";return}
+  try{await api("POST","/api/recurring",{day:+$("rDay").value,from:from,to:to,label:$("rLabel").value.trim()||"חוג"});$("rLabel").value="";$("rErr").textContent=""}
+  catch(e){$("rErr").textContent=e.message}
+  load();
+};
+
+(async function(){
+  try{CFG=await api("GET","/api/config")}catch(_){}
+  fillSel();setNote();await load();
+  // רענון חסכוני: כל 30 שניות כשהדף גלוי, כל 5 דקות אחרי 15 דקות בלי מגע, ובכלל לא כשהלשונית מוסתרת
+  var lastAct=Date.now(),lastLoad=Date.now();
+  ["click","keydown","touchstart","scroll"].forEach(function(ev){document.addEventListener(ev,function(){lastAct=Date.now()},{passive:true})});
+  setInterval(function(){
+    if(document.hidden)return;
+    var idle=Date.now()-lastAct>15*60000,every=idle?300000:30000;
+    if(Date.now()-lastLoad>=every){lastLoad=Date.now();load()}
+  },5000);
+  document.addEventListener("visibilitychange",function(){if(!document.hidden){lastAct=lastLoad=Date.now();load()}});
+})();
+})();
+</script>
+</body>
+</html>
