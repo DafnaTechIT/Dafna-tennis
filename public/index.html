@@ -4,63 +4,125 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>מגרשי הטניס בדפנה</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&family=Rubik:wght@500;600;700&display=swap">
+<link rel="icon" href="/logo.png">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1F2937" media="(prefers-color-scheme: dark)">
 <style>
-:root{--bg:#f6f4ee;--card:#fff;--ink:#1d2a22;--mute:#6b766f;--line:#e2dfd3;--green:#2f7d4f;--greenbg:#e4f2ea;--red:#b4443a;--redbg:#f8e6e3;--clay:#c8643c;
-box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141a16;--card:#1d2620;--ink:#eef2ee;--mute:#9aa79f;--line:#2c3830;--green:#6cc58f;--greenbg:#1f3a2b;--red:#e58a80;--redbg:#3d2420;--clay:#e08a63;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#141a16;--card:#1d2620;--ink:#eef2ee;--mute:#9aa79f;--line:#2c3830;--green:#6cc58f;--greenbg:#1f3a2b;--red:#e58a80;--redbg:#3d2420;--clay:#e08a63;color-scheme:dark}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
+/* עיצוב תואם ללוח דפנה: אפורים ניטרליים, ירוק אמרלד כצבע ראשי, זהב וכחול כהדגשות */
+:root{
+  --bg:#F4F8FA;--card:#FFFFFF;--card-2:#EDF3F7;--line:#E1E8ED;
+  --ink:#111827;--ink-2:#374151;--mute:#6B7280;
+  --green:#047857;--greenbg:#ECFDF5;--greenline:#6EE7B7;--accent:#047857;--accent-hover:#065F46;
+  --red:#B91C1C;--redbg:#FEF2F2;--redfill:#DC2626;
+  --yel:#F59E0B;--yelbg:#FEF3C7;--yeltx:#B45309;
+  --blue:#0EA5E9;--bluebg:#E0F2FE;--bluetx:#0369A1;--bluefill:#0369A1;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 6px 20px -8px rgba(0,0,0,.14);
+  --shadow-card:0 1px 2px rgba(17,24,39,.04),0 2px 6px -1px rgba(17,24,39,.06);
+  --radius:10px;--radius-sm:8px;
+  --font-display:'Rubik','Assistant','Segoe UI',Arial,sans-serif;
+  --font-body:'Assistant','Segoe UI',Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111827;--card:#1F2937;--card-2:#374151;--line:#374151;
+  --ink:#F9FAFB;--ink-2:#D1D5DB;--mute:#9CA3AF;
+  --green:#6EE7B7;--greenbg:#0B2F26;--greenline:#047857;--accent:#059669;--accent-hover:#047857;
+  --red:#FCA5A5;--redbg:#3A1C1C;--redfill:#DC2626;
+  --yel:#F59E0B;--yelbg:#3A2A0B;--yeltx:#FCD34D;
+  --blue:#0EA5E9;--bluebg:#082F49;--bluetx:#7DD3FC;--bluefill:#0369A1;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px -10px rgba(0,0,0,.5);
+  --shadow-card:0 1px 2px rgba(0,0,0,.35),0 2px 8px -2px rgba(0,0,0,.45);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111827;--card:#1F2937;--card-2:#374151;--line:#374151;
+  --ink:#F9FAFB;--ink-2:#D1D5DB;--mute:#9CA3AF;
+  --green:#6EE7B7;--greenbg:#0B2F26;--greenline:#047857;--accent:#059669;--accent-hover:#047857;
+  --red:#FCA5A5;--redbg:#3A1C1C;--redfill:#DC2626;
+  --yel:#F59E0B;--yelbg:#3A2A0B;--yeltx:#FCD34D;
+  --blue:#0EA5E9;--bluebg:#082F49;--bluetx:#7DD3FC;--bluefill:#0369A1;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px -10px rgba(0,0,0,.5);
+  --shadow-card:0 1px 2px rgba(0,0,0,.35),0 2px 8px -2px rgba(0,0,0,.45);
+  color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:"Heebo","Assistant",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;line-height:1.4}
-main{max-width:560px;margin:0 auto;padding:16px}
-h1{font-size:22px;margin:4px 0 2px}
+html{scroll-padding-top:80px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);line-height:1.45;-webkit-font-smoothing:antialiased;padding-bottom:env(safe-area-inset-bottom,0px)}
+h1,h2{font-family:var(--font-display);letter-spacing:-.02em;text-wrap:balance}
+
+/* כותרת עליונה עם לוגו, כמו בלוח */
+.site-header{position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--line);box-shadow:var(--shadow);padding-top:env(safe-area-inset-top,0px)}
+.header-inner{max-width:560px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:10px 16px}
+.brand-logo{height:46px;width:auto;display:block;flex-shrink:0}
+.brand-text{min-width:0}
+.brand-text h1{font-size:1.15rem;font-weight:700;margin:0;line-height:1.15;color:var(--ink)}
+.brand-text span{font-size:.78rem;color:var(--mute);font-weight:500}
+/* במצב כהה הלוגו יושב על משטח בהיר כדי שהטקסט הירוק שלו יישאר קריא */
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .brand-logo{background:#F4F8FA;border-radius:8px;padding:4px 6px}}
+:root[data-theme="dark"] .brand-logo{background:#F4F8FA;border-radius:8px;padding:4px 6px}
+
+main{max-width:560px;margin:0 auto;padding:18px 16px 40px}
 .sub{color:var(--mute);font-size:14px;margin:0 0 14px}
-.row{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px}
-.chip{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;text-align:center;min-width:64px}
-.chip small{display:block;color:var(--mute);font-size:12px}
-.chip.on{background:var(--green);border-color:var(--green);color:#fff}
-.chip.on small{color:#e8f5ee}
-.slot{display:flex;align-items:center;justify-content:space-between;width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:12px 14px;margin-bottom:8px;font:inherit;font-size:15px;text-align:start}
-.slot .t{font-weight:600;direction:ltr}
-.free{border-color:var(--green);background:var(--greenbg);cursor:pointer}
-.busy{border-color:transparent;background:var(--redbg);color:var(--red)}
-.past{opacity:.45}
+.row{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;scrollbar-width:none}
+.row::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:var(--radius);padding:8px 12px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;text-align:center;min-width:64px;box-shadow:var(--shadow-card)}
+.chip small{display:block;color:var(--mute);font-size:12px;font-weight:500}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chip.on small{color:#D1FAE5}
+.slot{display:flex;align-items:center;justify-content:space-between;width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;font:inherit;font-size:15px;text-align:start;box-shadow:var(--shadow-card)}
+.slot .t{font-weight:700;direction:ltr;font-variant-numeric:tabular-nums}
+.free{border-color:var(--greenline);background:var(--greenbg);cursor:pointer}
+.free .tag{color:var(--green);font-weight:600}
+.busy{border-color:transparent;background:var(--redbg);color:var(--red);box-shadow:none}
+.past{opacity:.6}
+.slot.past{background:var(--card-2);color:var(--mute);border-color:transparent;box-shadow:none}
 .tag{font-size:13px}
-:root{--yelbg:#fbf0c8;--yeltx:#8a6a00;--yel:#e0b100}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--yelbg:#3d3414;--yeltx:#f0cf6a;--yel:#e0b100}}
-:root[data-theme="dark"]{--yelbg:#3d3414;--yeltx:#f0cf6a;--yel:#e0b100}
 .seek{border-color:var(--yel);background:var(--yelbg);color:var(--yeltx)}
-:root{--blue:#2f6fb0;--bluebg:#e1ecf8;--bluetx:#1f528a}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--blue:#6aa6e8;--bluebg:#1c2e45;--bluetx:#9cc3f0}}
-:root[data-theme="dark"]{--blue:#6aa6e8;--bluebg:#1c2e45;--bluetx:#9cc3f0}
-.block{border-color:transparent;background:var(--bluebg);color:var(--bluetx)}
-.slot u.blu{background:var(--blue);color:var(--card)}
-select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--bg);color:var(--ink)}
-.req{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:-4px 0 8px;padding:8px 12px;border:1px dashed var(--green);border-radius:12px;font-size:14px}
-.req u,.wl u{text-decoration:none;background:var(--red);color:var(--card);border-radius:8px;padding:2px 8px;margin-inline-start:6px;font-weight:600;cursor:pointer}
+.block{border-color:transparent;background:var(--bluebg);color:var(--bluetx);box-shadow:none}
+.slot u.blu{background:var(--bluefill);color:#fff}
+select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius-sm);font:inherit;background:var(--card-2);color:var(--ink)}
+.req{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:-4px 0 8px;padding:8px 12px;border:1px dashed var(--greenline);border-radius:var(--radius);font-size:14px}
+.req u,.wl u{text-decoration:none;background:var(--redfill);color:#fff;border-radius:6px;padding:2px 8px;margin-inline-start:6px;font-weight:700;cursor:pointer}
 .slot u{cursor:pointer}
-.slot u.ok,.req u.ok,.wl u.ok{background:var(--green)}
-h2{font-size:17px;margin:22px 0 4px}
-.wl{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);margin-bottom:8px;font-size:14px}
-.wl a,.req a{color:var(--green)}
-.slot u{text-decoration:none;background:var(--red);color:var(--card);border-radius:8px;padding:2px 8px;margin-inline-start:6px;font-weight:600}
-.legend{display:flex;gap:14px;font-size:13px;color:var(--mute);margin:4px 0 12px}
+.slot u.ok,.req u.ok,.wl u.ok{background:var(--accent)}
+h2{font-size:1.2rem;font-weight:600;margin:28px 0 6px;display:flex;align-items:center;gap:10px}
+h2::before{content:"";width:22px;height:3px;border-radius:2px;background:var(--accent);flex-shrink:0}
+.wl{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);margin-bottom:8px;font-size:14px;box-shadow:var(--shadow-card)}
+.wl a,.req a{color:var(--green);font-weight:600}
+.slot u{text-decoration:none;background:var(--redfill);color:#fff;border-radius:6px;padding:2px 8px;margin-inline-start:6px;font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--mute);margin:4px 0 12px;font-weight:500}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-inline-end:5px}
-.note{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;color:var(--mute);margin-top:14px}
-dialog{border:none;border-radius:16px;padding:18px;width:min(92vw,420px);background:var(--card);color:var(--ink)}
-dialog::backdrop{background:rgba(0,0,0,.45)}
-label{display:block;font-size:14px;margin:10px 0 4px}
-input[type=text],input[type=tel]{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--bg);color:var(--ink)}
+.note{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;font-size:13px;color:var(--mute);margin-top:14px}
+dialog{border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;width:min(92vw,420px);background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+dialog b{font-family:var(--font-display);font-weight:600;font-size:1.05rem}
+dialog::backdrop{background:rgba(0,0,0,.5);backdrop-filter:blur(2px)}
+label{display:block;font-size:.8rem;font-weight:700;color:var(--ink-2);margin:12px 0 5px}
+input[type=text],input[type=tel]{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius-sm);font:inherit;background:var(--card-2);color:var(--ink)}
+input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px}
+input[type=checkbox]{accent-color:var(--accent);width:18px;height:18px}
 .chk{display:flex;gap:8px;align-items:center;margin:12px 0}
-.btns{display:flex;gap:8px;margin-top:14px}
-.btn{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;cursor:pointer}
-.btn.pri{background:var(--clay);border-color:var(--clay);color:#fff;font-weight:600}
-.err{color:var(--red);font-size:13px;min-height:18px;margin-top:6px}
+.chk label{font-size:.9rem;font-weight:600}
+.btns{display:flex;gap:8px;margin-top:16px}
+.btn{flex:1;padding:11px 16px;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--card-2);color:var(--ink);font:inherit;font-weight:700;cursor:pointer}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.pri:hover{background:var(--accent-hover)}
+.btn:disabled{opacity:.6}
+.err{color:var(--red);font-size:13px;min-height:18px;margin-top:6px;font-weight:600}
+footer{text-align:center;color:var(--mute);font-size:.76rem;padding:16px;border-top:1px solid var(--line)}
 </style>
 </head>
 <body>
+<header class="site-header">
+  <div class="header-inner">
+    <img class="brand-logo" src="/logo.png" alt="קיבוץ דפנה" width="106" height="46">
+    <div class="brand-text">
+      <h1>מגרש הטניס 🎾</h1>
+      <span>הזמנת שעות למגרש</span>
+    </div>
+  </div>
+</header>
 <main>
-  <h1>🎾 מגרשי הטניס בדפנה</h1>
   <p class="sub">הזמנה של 60 דקות, עד שבוע מראש. חינם לתושבי דפנה.</p>
   <div class="row" id="days"></div>
   <div class="row" id="courts"></div>
