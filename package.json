@@ -2,7 +2,13 @@
   "name": "dafna-tennis",
   "version": "2.0.0",
   "description": "הזמנת מגרש טניס בדפנה (גרסת Vercel)",
-  "engines": { "node": "22.x" },
+  "engines": {
+    "node": "22.x"
+  },
   "license": "UNLICENSED",
-  "private": true
+  "private": true,
+  "scripts": {
+    "dev": "node test/dev-server.js",
+    "test": "node test/run-tests.js"
+  }
 }
