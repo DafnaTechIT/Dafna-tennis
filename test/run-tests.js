@@ -49,14 +49,7 @@ const bk = (date, hour, extra) => Object.assign({ date, hour, name: 'Test', phon
   check('join request', (await call('POST', '/api/tennis/joins', Z, { bid: id, name: 'Other', phone: '0507654321' })).status === 200);
   check('owner approves join', (await call('POST', '/api/tennis/joins/' + id + '_' + Z + '/answer', A, { approve: true })).status === 200);
 
-  // --- multi court is separate ---
-  check('multi: same slot is free (separate data)', (await call('POST', '/api/multi/bookings', Z, bk(MON, 10))).status === 200);
-  check('multi: 14:00 (daily closed block) rejected', (await call('POST', '/api/multi/bookings', Z, bk(MON, 14))).status === 409);
-  check('multi: 15:00 (daily closed block) rejected', (await call('POST', '/api/multi/bookings', Z, bk(MON, 15))).status === 409);
-  check('multi: closure seeded for all 7 days', (await call('GET', '/api/multi/state', Z)).json.recurring.filter(r => r.from === 14 && r.to === 16 && r.label === 'סגור').length === 7);
-  const ms = (await call('GET', '/api/multi/state', Z)).json;
-  check('multi: only its own booking', ms.bookings.length === 1 && ms.bookings[0].mine);
-  check('multi: config name', (await call('GET', '/api/multi/config')).json.courtName === 'המגרש המשולב');
+  check('combined court removed', (await call('GET', '/api/multi/config')).json.venue === undefined);
 
   // --- admin ---
   check('wrong admin password rejected', (await call('POST', '/api/admin/login', A, { password: 'nope' })).status === 401);

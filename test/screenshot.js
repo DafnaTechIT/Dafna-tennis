@@ -11,7 +11,7 @@ const { chromium } = require('playwright');
   const out = path.join(__dirname, '..', 'screenshots');
   fs.mkdirSync(out, { recursive: true });
   const b = await chromium.launch();
-  for (const tab of ['tennis', 'hall', 'multi']) {
+  for (const tab of ['tennis', 'hall']) {
     for (const scheme of ['light', 'dark']) {
       const p = await b.newPage({ viewport: { width: 400, height: 900 }, colorScheme: scheme });
       await p.goto('http://127.0.0.1:' + process.env.PORT + '/' + (tab === 'tennis' ? '' : '#' + tab));

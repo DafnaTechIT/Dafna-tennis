@@ -1,6 +1,6 @@
 'use strict';
 // Dafna courts & hall — Vercel serverless API.
-// Venues: tennis + multi (bookable courts) and hall (read-only schedule, admin-edited).
+// Venues: tennis (bookable court) and hall (read-only schedule, admin-edited).
 // Storage: Upstash Redis over its REST API (no npm dependencies). Keys are prefixed per venue.
 const crypto = require('crypto');
 
@@ -27,16 +27,11 @@ const VENUES = {
     kind: 'court', prefix: 'tennis:', name: 'מגרש הטניס', courtName: process.env.COURT_NAME || 'מגרש הטניס',
     price: +process.env.GUEST_PRICE || 100, seed: null,
   },
-  multi: {
-    kind: 'court', prefix: 'multi:', name: 'המגרש המשולב', courtName: 'המגרש המשולב',
-    price: +process.env.MULTI_GUEST_PRICE || 100, seed: 'closed',
-  },
   hall: { kind: 'hall', prefix: 'hall:', name: 'אולם הספורט', coll: ['recurring', 'exceptions'], seed: 'hall' },
 };
 const MAX_PER_DAY = +process.env.MAX_PER_DAY || 0;
 
 // One-time seed data, written the first time each venue is used (guarded by a Redis SET NX flag).
-const CLOSED_SEED = [0, 1, 2, 3, 4, 5, 6].map(day => ['seed-closed-' + day, { day, from: 14, to: 16, label: 'סגור' }]);
 const T = (h, m) => h * 60 + m;
 const HALL_SEED = [
   [0, T(17, 30), T(18, 45), 'ג׳–ד׳ דפנה'],
@@ -112,7 +107,7 @@ async function ensureSeed(vname) {
   if (!V.seed) { seeded[vname] = true; return; }
   const first = await cmd('SET', V.prefix + 'seed:v1', '1', 'NX');
   if (first === 'OK') {
-    const rows = V.seed === 'hall' ? HALL_SEED : CLOSED_SEED;
+    const rows = HALL_SEED;
     await pipeline(rows.map(([id, r]) => ['HSETNX', V.prefix + 'recurring', id, JSON.stringify(r)]));
   }
   seeded[vname] = true;
@@ -141,7 +136,7 @@ function configFor(vname) {
   };
 }
 
-// ---------- courts (tennis, multi) ----------
+// ---------- court (tennis) ----------
 function blockInfo(db, date, hour) {
   const bk = db.blocks[bkey(date, hour)];
   if (bk) return bk.released ? null : { label: bk.label || 'חוג' };
@@ -357,7 +352,7 @@ async function route(req, body, p) {
   const token = /^[a-f0-9]{48}$/.test(tok) ? tok : null;
 
   // /api/<venue>/<sub>; older pages call /api/<sub>, which means tennis.
-  const vm = p.match(/^\/api\/(tennis|multi|hall)(\/.*)?$/);
+  const vm = p.match(/^\/api\/(tennis|hall)(\/.*)?$/);
   const vname = vm ? vm[1] : 'tennis';
   const sub = vm ? (vm[2] || '') : p.replace(/^\/api/, '');
   const V = VENUES[vname];
