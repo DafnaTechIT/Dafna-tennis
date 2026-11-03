@@ -59,7 +59,7 @@ The dev server never touches the real database.
   weekly schedule of classes that only the admin edits; it has no bookings.
 - Court opening hours are per weekday in `HOURS` in `api/index.js` (Sun–Thu 07–21, Fri 08–19, Sat 08–21).
   Court recurring blocks use whole hours; hall classes use minutes from midnight in 15-minute steps.
-- Seed data (the hall's 22 classes) is written once,
+- Seed data (the hall's 24 classes) is written once,
   guarded by a `hall:seed:v1` flag. Tennis is not seeded: the admin already set its blocks by hand.
 - Every booking must carry `rules: true` (the user confirmed the court rules).
 - Times are always Israel time (`Asia/Jerusalem`), computed in code — the server runs in UTC.

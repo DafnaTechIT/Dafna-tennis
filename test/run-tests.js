@@ -64,7 +64,9 @@ const bk = (date, hour, extra) => Object.assign({ date, hour, name: 'Test', phon
 
   // --- hall ---
   const hs = (await call('GET', '/api/hall/state', Z)).json;
-  check('hall: 22 seeded classes', hs.recurring.length === 22, hs.recurring.length);
+  check('hall: 24 classes from the sheet', hs.recurring.length === 24, hs.recurring.length);
+  check('hall: Sunday 20:15–21:30 class', hs.recurring.some(r => r.day === 0 && r.from === 20 * 60 + 15 && r.to === 21 * 60 + 30));
+  check('hall: Thursday adult volleyball 21:00–23:00', hs.recurring.some(r => r.day === 4 && r.from === 21 * 60 && r.to === 23 * 60));
   check('hall: times in minutes', hs.recurring.some(r => r.day === 0 && r.from === 17 * 60 + 30 && r.to === 18 * 60 + 45));
   check('hall: no bookings endpoint', (await call('POST', '/api/hall/bookings', A, bk(MON, 15))).status === 403);
   const mon = hs.recurring.find(r => r.day === 1);
@@ -79,7 +81,7 @@ const bk = (date, hour, extra) => Object.assign({ date, hour, name: 'Test', phon
   check('hall: non-15-minute time rejected', (await call('POST', '/api/hall/recurring', A, { day: 2, from: 22 * 60 + 10, to: 23 * 60, label: 'x חוג' }, tok)).status === 400);
   check('hall: admin edits a class', (await call('POST', '/api/hall/recurring/' + mon.id, A, { day: 1, from: 840, to: 900, label: 'שם חדש' }, tok)).status === 200);
   check('hall: admin deletes a class', (await call('DELETE', '/api/hall/recurring/' + mon.id, A, null, tok)).status === 200);
-  check('hall: 22 classes after add+delete', (await call('GET', '/api/hall/state')).json.recurring.length === 22);
+  check('hall: 24 classes after add+delete', (await call('GET', '/api/hall/state')).json.recurring.length === 24);
 
   check('cron prune runs', (await call('GET', '/api/cron/prune')).json.ok === true);
 
