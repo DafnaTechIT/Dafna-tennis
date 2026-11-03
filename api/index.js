@@ -22,15 +22,16 @@ const MIN_OPEN = Math.min(...HOURS.map(h => h[0])), MAX_CLOSE = Math.max(...HOUR
 
 const COURT_COLL = ['bookings', 'joins', 'wanted', 'blocks', 'recurring'];
 const VENUES = {
+  // Tennis is not seeded: its 14:00–16:00 blocks (and a real class in that slot) were already set up by the admin.
   tennis: {
     kind: 'court', prefix: 'tennis:', name: 'מגרש הטניס', courtName: process.env.COURT_NAME || 'מגרש הטניס',
-    price: +process.env.GUEST_PRICE || 100,
+    price: +process.env.GUEST_PRICE || 100, seed: null,
   },
   multi: {
     kind: 'court', prefix: 'multi:', name: 'המגרש המשולב', courtName: 'המגרש המשולב',
-    price: +process.env.MULTI_GUEST_PRICE || 100,
+    price: +process.env.MULTI_GUEST_PRICE || 100, seed: 'closed',
   },
-  hall: { kind: 'hall', prefix: 'hall:', name: 'אולם הספורט', coll: ['recurring', 'exceptions'] },
+  hall: { kind: 'hall', prefix: 'hall:', name: 'אולם הספורט', coll: ['recurring', 'exceptions'], seed: 'hall' },
 };
 const MAX_PER_DAY = +process.env.MAX_PER_DAY || 0;
 
@@ -108,9 +109,10 @@ const seeded = {};
 async function ensureSeed(vname) {
   if (seeded[vname]) return;
   const V = VENUES[vname];
+  if (!V.seed) { seeded[vname] = true; return; }
   const first = await cmd('SET', V.prefix + 'seed:v1', '1', 'NX');
   if (first === 'OK') {
-    const rows = V.kind === 'hall' ? HALL_SEED : CLOSED_SEED;
+    const rows = V.seed === 'hall' ? HALL_SEED : CLOSED_SEED;
     await pipeline(rows.map(([id, r]) => ['HSETNX', V.prefix + 'recurring', id, JSON.stringify(r)]));
   }
   seeded[vname] = true;

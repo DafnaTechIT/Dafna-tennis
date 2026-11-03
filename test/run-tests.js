@@ -38,8 +38,6 @@ const bk = (date, hour, extra) => Object.assign({ date, hour, name: 'Test', phon
   check('book a slot', (await call('POST', '/api/tennis/bookings', A, bk(MON, 10, { seeking: true }))).status === 200);
   check('booking without rules rejected', (await call('POST', '/api/tennis/bookings', A, bk(MON, 11, { rules: undefined }))).status === 400);
   check('double booking rejected', (await call('POST', '/api/tennis/bookings', Z, bk(MON, 10))).status === 409);
-  check('14:00 (daily closed block) rejected', (await call('POST', '/api/tennis/bookings', A, bk(MON, 14))).status === 409);
-  check('15:00 (daily closed block) rejected', (await call('POST', '/api/tennis/bookings', A, bk(MON, 15))).status === 409);
   check('weekday 21:00 rejected (closes 21)', (await call('POST', '/api/tennis/bookings', A, bk(MON, 21))).status === 400);
   check('Friday 07:00 rejected', (await call('POST', '/api/tennis/bookings', A, bk(FRI, 7))).status === 400);
   check('Friday 19:00 rejected', (await call('POST', '/api/tennis/bookings', A, bk(FRI, 19))).status === 400);
@@ -47,13 +45,15 @@ const bk = (date, hour, extra) => Object.assign({ date, hour, name: 'Test', phon
   check('Saturday 20:00 accepted', (await call('POST', '/api/tennis/bookings', A, bk(SAT, 20))).status === 200);
   const st = (await call('GET', '/api/tennis/state', Z)).json;
   check('phone hidden from others', st.bookings.every(b => b.phone === undefined));
-  check('daily 14–16 closure seeded for all 7 days', st.recurring.filter(r => r.from === 14 && r.to === 16 && r.label === 'סגור').length === 7);
+  check('tennis is not auto-seeded (admin already set its blocks)', st.recurring.length === 0);
   check('join request', (await call('POST', '/api/tennis/joins', Z, { bid: id, name: 'Other', phone: '0507654321' })).status === 200);
   check('owner approves join', (await call('POST', '/api/tennis/joins/' + id + '_' + Z + '/answer', A, { approve: true })).status === 200);
 
   // --- multi court is separate ---
   check('multi: same slot is free (separate data)', (await call('POST', '/api/multi/bookings', Z, bk(MON, 10))).status === 200);
-  check('multi: 14:00 closed too', (await call('POST', '/api/multi/bookings', Z, bk(MON, 14))).status === 409);
+  check('multi: 14:00 (daily closed block) rejected', (await call('POST', '/api/multi/bookings', Z, bk(MON, 14))).status === 409);
+  check('multi: 15:00 (daily closed block) rejected', (await call('POST', '/api/multi/bookings', Z, bk(MON, 15))).status === 409);
+  check('multi: closure seeded for all 7 days', (await call('GET', '/api/multi/state', Z)).json.recurring.filter(r => r.from === 14 && r.to === 16 && r.label === 'סגור').length === 7);
   const ms = (await call('GET', '/api/multi/state', Z)).json;
   check('multi: only its own booking', ms.bookings.length === 1 && ms.bookings[0].mine);
   check('multi: config name', (await call('GET', '/api/multi/config')).json.courtName === 'המגרש המשולב');
@@ -63,7 +63,8 @@ const bk = (date, hour, extra) => Object.assign({ date, hour, name: 'Test', phon
   const tok = (await call('POST', '/api/admin/login', A, { password: process.env.ADMIN_PASSWORD })).json.token;
   check('admin login', !!tok);
   check('recurring needs admin', (await call('POST', '/api/tennis/recurring', A, { day: 1, from: 17, to: 19, label: 'x' })).status === 403);
-  check('admin adds recurring', (await call('POST', '/api/tennis/recurring', A, { day: 1, from: 17, to: 19, label: 'x' }, tok)).status === 200);
+  check('admin adds recurring', (await call('POST', '/api/tennis/recurring', A, { day: 1, from: 14, to: 16, label: 'חוג' }, tok)).status === 200);
+  check('tennis: booking inside an admin block rejected', (await call('POST', '/api/tennis/bookings', A, bk(MON, 14))).status === 409);
   check('others cannot cancel', (await call('DELETE', '/api/tennis/bookings/' + id, Z)).status === 403);
   check('owner cancels', (await call('DELETE', '/api/tennis/bookings/' + id, A)).status === 200);
   check('past date rejected', (await call('POST', '/api/tennis/bookings', A, bk('2020-01-01', 10))).status === 400);
