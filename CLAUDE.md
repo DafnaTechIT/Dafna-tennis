@@ -1,6 +1,7 @@
-# Dafna tennis court booking — instructions for Claude
+# Dafna courts & sports hall — instructions for Claude
 
-This is the tennis court booking app for Kibbutz Dafna, live at https://dafna-tennis.vercel.app.
+This is the booking app for Kibbutz Dafna's sports facilities, live at https://dafna-tennis.vercel.app.
+One page, two tabs: tennis court (default) and sports hall (`#hall`).
 The repository is **public**. Merges to `main` deploy to production automatically (Vercel).
 
 ## Who you are working with
@@ -48,12 +49,19 @@ The dev server never touches the real database.
 
 | Path | What it is |
 |---|---|
-| `public/index.html` | The whole front end: HTML, CSS and JavaScript in one file, Hebrew, right-to-left |
+| `public/index.html` | The whole front end (both tabs): HTML, CSS and JavaScript in one file, Hebrew, right-to-left |
 | `public/logo.png` | Kibbutz Dafna logo |
-| `api/index.js` | All server endpoints in one Vercel function; data in Upstash Redis (keys `tennis:*`) |
+| `api/index.js` | All server endpoints in one Vercel function: `/api/<venue>/...` for `tennis` and `hall`; data in Upstash Redis (keys `tennis:*`, `hall:*`) |
 | `vercel.json` | Routing, security headers (CSP), region `fra1`, daily cleanup cron |
 | `test/` | Dev server with a fake database, API tests, screenshot script |
 
+- Venues: `tennis` is the bookable court. `hall` is a read-only
+  weekly schedule of classes that only the admin edits; it has no bookings.
+- Court opening hours are per weekday in `HOURS` in `api/index.js` (Sun–Thu 07–21, Fri 08–19, Sat 08–21).
+  Court recurring blocks use whole hours; hall classes use minutes from midnight in 15-minute steps.
+- Seed data (the hall's 24 classes) is written once,
+  guarded by a `hall:seed:v1` flag. Tennis is not seeded: the admin already set its blocks by hand.
+- Every booking must carry `rules: true` (the user confirmed the court rules).
 - Times are always Israel time (`Asia/Jerusalem`), computed in code — the server runs in UTC.
 - The page refreshes data every 30 seconds while visible, slower when idle. Do not make it faster:
   it counts against the free Vercel and Upstash quotas.
