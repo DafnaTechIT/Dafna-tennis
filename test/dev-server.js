@@ -16,7 +16,11 @@ function run([c, ...x]) {
     case 'HSETNX': if (h(x[0]).has(x[1])) return 0; h(x[0]).set(x[1], x[2]); return 1;
     case 'HDEL': return h(x[0]).delete(x[1]) ? 1 : 0;
     case 'GET': return store.has(x[0]) ? store.get(x[0]) : null;
-    case 'SET': store.set(x[0], x[1]); return 'OK';
+    case 'SET': {
+      const nx = x.slice(2).some(a => String(a).toUpperCase() === 'NX');
+      if (nx && store.has(x[0])) return null;
+      store.set(x[0], x[1]); return 'OK';
+    }
     case 'INCR': { const v = (+store.get(x[0]) || 0) + 1; store.set(x[0], String(v)); return v; }
     case 'EXPIRE': return 1;
     default: throw new Error('unsupported command ' + c);

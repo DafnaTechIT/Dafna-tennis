@@ -14,31 +14,80 @@ async function call(method, path, cid, body, token) {
 }
 
 let failed = 0;
-function check(name, cond) { console.log((cond ? 'PASS ' : 'FAIL ') + name); if (!cond) failed++; }
+function check(name, cond, extra) { console.log((cond ? 'PASS ' : 'FAIL ') + name + (cond || !extra ? '' : '  ' + JSON.stringify(extra))); if (!cond) failed++; }
+
+// Israel-time dates: the next date (1..7 days ahead) falling on a given weekday.
+const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit' });
+function nextDay(weekday) {
+  const t = new Date(fmt.format(new Date()) + 'T12:00:00Z');
+  for (let i = 1; i <= 7; i++) { t.setUTCDate(t.getUTCDate() + 1); if (t.getUTCDay() === weekday) return t.toISOString().slice(0, 10); }
+}
+const bk = (date, hour, extra) => Object.assign({ date, hour, name: 'Test', phone: '0501234567', rules: true }, extra);
 
 (async () => {
   await new Promise(r => setTimeout(r, 300));
-  // Tomorrow in Israel time, 10:00, is always inside the booking window.
-  const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit' });
-  const t = new Date(f.format(new Date()) + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() + 1);
-  const D = t.toISOString().slice(0, 10), id = D + '_10';
+  const MON = nextDay(1), FRI = nextDay(5), SAT = nextDay(6), id = MON + '_10';
 
   check('page loads', (await fetch(B + '/')).status === 200);
   check('logo loads', (await fetch(B + '/logo.png')).status === 200);
-  check('config', (await call('GET', '/api/config')).json.open === 7);
-  check('book a slot', (await call('POST', '/api/bookings', A, { date: D, hour: 10, name: 'Test', phone: '0501234567', seeking: true })).status === 200);
-  check('double booking rejected', (await call('POST', '/api/bookings', Z, { date: D, hour: 10, name: 'Other', phone: '0501234567' })).status === 409);
-  check('phone hidden from others', (await call('GET', '/api/state', Z)).json.bookings.every(b => b.phone === undefined));
-  check('join request', (await call('POST', '/api/joins', Z, { bid: id, name: 'Other', phone: '0507654321' })).status === 200);
-  check('owner approves join', (await call('POST', '/api/joins/' + id + '_' + Z + '/answer', A, { approve: true })).status === 200);
+  const cfg = (await call('GET', '/api/tennis/config')).json;
+  check('config has per-day hours', Array.isArray(cfg.hours) && cfg.hours[5][0] === 8 && cfg.hours[5][1] === 19, cfg);
+  check('old /api/config path still works', (await call('GET', '/api/config')).json.venue === 'tennis');
+
+  // --- tennis bookings ---
+  check('book a slot', (await call('POST', '/api/tennis/bookings', A, bk(MON, 10, { seeking: true }))).status === 200);
+  check('booking without rules rejected', (await call('POST', '/api/tennis/bookings', A, bk(MON, 11, { rules: undefined }))).status === 400);
+  check('double booking rejected', (await call('POST', '/api/tennis/bookings', Z, bk(MON, 10))).status === 409);
+  check('14:00 (daily closed block) rejected', (await call('POST', '/api/tennis/bookings', A, bk(MON, 14))).status === 409);
+  check('15:00 (daily closed block) rejected', (await call('POST', '/api/tennis/bookings', A, bk(MON, 15))).status === 409);
+  check('weekday 21:00 rejected (closes 21)', (await call('POST', '/api/tennis/bookings', A, bk(MON, 21))).status === 400);
+  check('Friday 07:00 rejected', (await call('POST', '/api/tennis/bookings', A, bk(FRI, 7))).status === 400);
+  check('Friday 19:00 rejected', (await call('POST', '/api/tennis/bookings', A, bk(FRI, 19))).status === 400);
+  check('Friday 18:00 accepted', (await call('POST', '/api/tennis/bookings', A, bk(FRI, 18))).status === 200);
+  check('Saturday 20:00 accepted', (await call('POST', '/api/tennis/bookings', A, bk(SAT, 20))).status === 200);
+  const st = (await call('GET', '/api/tennis/state', Z)).json;
+  check('phone hidden from others', st.bookings.every(b => b.phone === undefined));
+  check('daily 14–16 closure seeded for all 7 days', st.recurring.filter(r => r.from === 14 && r.to === 16 && r.label === 'סגור').length === 7);
+  check('join request', (await call('POST', '/api/tennis/joins', Z, { bid: id, name: 'Other', phone: '0507654321' })).status === 200);
+  check('owner approves join', (await call('POST', '/api/tennis/joins/' + id + '_' + Z + '/answer', A, { approve: true })).status === 200);
+
+  // --- multi court is separate ---
+  check('multi: same slot is free (separate data)', (await call('POST', '/api/multi/bookings', Z, bk(MON, 10))).status === 200);
+  check('multi: 14:00 closed too', (await call('POST', '/api/multi/bookings', Z, bk(MON, 14))).status === 409);
+  const ms = (await call('GET', '/api/multi/state', Z)).json;
+  check('multi: only its own booking', ms.bookings.length === 1 && ms.bookings[0].mine);
+  check('multi: config name', (await call('GET', '/api/multi/config')).json.courtName === 'המגרש המשולב');
+
+  // --- admin ---
   check('wrong admin password rejected', (await call('POST', '/api/admin/login', A, { password: 'nope' })).status === 401);
   const tok = (await call('POST', '/api/admin/login', A, { password: process.env.ADMIN_PASSWORD })).json.token;
   check('admin login', !!tok);
-  check('recurring needs admin', (await call('POST', '/api/recurring', A, { day: 1, from: 17, to: 19, label: 'x' })).status === 403);
-  check('admin adds recurring', (await call('POST', '/api/recurring', A, { day: 1, from: 17, to: 19, label: 'x' }, tok)).status === 200);
-  check('others cannot cancel', (await call('DELETE', '/api/bookings/' + id, Z)).status === 403);
-  check('owner cancels', (await call('DELETE', '/api/bookings/' + id, A)).status === 200);
-  check('past date rejected', (await call('POST', '/api/bookings', A, { date: '2020-01-01', hour: 10, name: 'Test', phone: '0501234567' })).status === 400);
+  check('recurring needs admin', (await call('POST', '/api/tennis/recurring', A, { day: 1, from: 17, to: 19, label: 'x' })).status === 403);
+  check('admin adds recurring', (await call('POST', '/api/tennis/recurring', A, { day: 1, from: 17, to: 19, label: 'x' }, tok)).status === 200);
+  check('others cannot cancel', (await call('DELETE', '/api/tennis/bookings/' + id, Z)).status === 403);
+  check('owner cancels', (await call('DELETE', '/api/tennis/bookings/' + id, A)).status === 200);
+  check('past date rejected', (await call('POST', '/api/tennis/bookings', A, bk('2020-01-01', 10))).status === 400);
+
+  // --- hall ---
+  const hs = (await call('GET', '/api/hall/state', Z)).json;
+  check('hall: 22 seeded classes', hs.recurring.length === 22, hs.recurring.length);
+  check('hall: times in minutes', hs.recurring.some(r => r.day === 0 && r.from === 17 * 60 + 30 && r.to === 18 * 60 + 45));
+  check('hall: no bookings endpoint', (await call('POST', '/api/hall/bookings', A, bk(MON, 15))).status === 403);
+  const mon = hs.recurring.find(r => r.day === 1);
+  check('hall: release needs admin', (await call('POST', '/api/hall/release', A, { date: MON, recId: mon.id })).status === 403);
+  check('hall: add class needs admin', (await call('POST', '/api/hall/recurring', A, { day: 2, from: 900, to: 960, label: 'חוג חדש' })).status === 403);
+  check('hall: edit class needs admin', (await call('POST', '/api/hall/recurring/' + mon.id, A, { day: 1, from: 840, to: 900, label: 'x' })).status === 403);
+  check('hall: admin releases a single date', (await call('POST', '/api/hall/release', A, { date: MON, recId: mon.id }, tok)).status === 200);
+  check('hall: release is visible', (await call('GET', '/api/hall/state')).json.exceptions.some(e => e.date === MON && e.recId === mon.id && e.released));
+  check('hall: release on wrong weekday rejected', (await call('POST', '/api/hall/release', A, { date: FRI, recId: mon.id }, tok)).status === 400);
+  check('hall: admin restores the date', (await call('POST', '/api/hall/release', A, { date: MON, recId: mon.id, released: false }, tok)).status === 200);
+  check('hall: admin adds a class (15-min steps)', (await call('POST', '/api/hall/recurring', A, { day: 2, from: 22 * 60 + 15, to: 23 * 60, label: 'חוג חדש' }, tok)).status === 200);
+  check('hall: non-15-minute time rejected', (await call('POST', '/api/hall/recurring', A, { day: 2, from: 22 * 60 + 10, to: 23 * 60, label: 'x חוג' }, tok)).status === 400);
+  check('hall: admin edits a class', (await call('POST', '/api/hall/recurring/' + mon.id, A, { day: 1, from: 840, to: 900, label: 'שם חדש' }, tok)).status === 200);
+  check('hall: admin deletes a class', (await call('DELETE', '/api/hall/recurring/' + mon.id, A, null, tok)).status === 200);
+  check('hall: 22 classes after add+delete', (await call('GET', '/api/hall/state')).json.recurring.length === 22);
+
+  check('cron prune runs', (await call('GET', '/api/cron/prune')).json.ok === true);
 
   console.log(failed ? `\n${failed} test(s) FAILED` : '\nAll tests passed');
   server.close(); process.exit(failed ? 1 : 0);
