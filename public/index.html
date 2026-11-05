@@ -251,13 +251,12 @@ var VEN={
 var DEF_HOURS=[[7,21],[7,21],[7,21],[7,21],[7,21],[8,19],[8,21]];
 var CFGS={},STATE={};
 var V="tennis",CFG=null,S=null;
-var bm={},blm={},selDay=0,pending=null,jTarget=null,cancelId=null,hEditId=null;
+var bm={},selDay=0,pending=null,jTarget=null,cancelId=null,hEditId=null;
 var $=function(i){return document.getElementById(i)};
 function pad(n){return n<10?"0"+n:""+n}
 function fmtM(m){return pad(Math.floor(m/60))+":"+pad(m%60)}
 function dateKey(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
 function dayOf(i){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+i);return d}
-function bkey(dk,h){return dk+"_"+pad(h)}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function store(k,v){try{if(v===undefined)return localStorage.getItem(k)||"";localStorage.setItem(k,v)}catch(_){return ""}}
 var cid=store("dt_cid");
@@ -275,7 +274,6 @@ async function api(method,path,body,venue){
 function setNote(m){$("note").textContent=m||(V==="hall"?"הלוח מתעדכן אוטומטית. שינויים בחוגים נעשים על ידי המנהל.":"ההזמנות מתעדכנות אוטומטית אצל כולם. ביטול אפשרי רק להזמנה שלכם.")}
 function toast(m){setNote(m);setTimeout(function(){setNote()},4000)}
 function isAdmin(){return !!(S&&S.me&&S.me.admin)}
-function hoursOf(i){var h=(CFG&&CFG.hours)||DEF_HOURS;return h[dayOf(i).getDay()]}
 
 async function load(){
   var v=V;
@@ -288,16 +286,9 @@ async function load(){
   }catch(_){if(v===V)setNote("אין חיבור לשרת, מנסה שוב...")}
 }
 function indexCourt(){
-  bm={};S.bookings.forEach(function(b){bm[bkey(b.date,b.hour)]=b});
-  blm={};S.blocks.forEach(function(b){blm[bkey(b.date,b.hour)]=b});
+  bm={};S.bookings.forEach(function(b){bm[b.date+"_"+b.start]=b});
 }
-function blockInfo(dk,hr){
-  var bk=blm[bkey(dk,hr)];
-  if(bk)return bk.released?null:{label:bk.label||"חוג"};
-  var wd=dayOf(selDay).getDay();
-  for(var i=0;i<S.recurring.length;i++){var r=S.recurring[i];if(r.day===wd&&hr>=r.from&&hr<r.to)return{label:r.label||"חוג"}}
-  return null;
-}
+function daySegs(dk){var d=(S.days||[]).filter(function(x){return x.date===dk})[0];return d?d.segs:[]}
 function renderDays(){
   var h="",n=(CFG&&CFG.daysAhead)||7;
   for(var i=0;i<=n;i++){var d=dayOf(i);
@@ -305,29 +296,34 @@ function renderDays(){
   $("days").innerHTML=h;
 }
 function renderSlots(){
-  var dk=dateKey(dayOf(selDay)),now=new Date(),h="",oc=hoursOf(selDay);
-  for(var hr=oc[0];hr<oc[1];hr++){
-    var key=bkey(dk,hr),k=blockInfo(dk,hr),b=k?null:bm[key];
-    var past=selDay===0&&hr<now.getHours();
-    var label=pad(hr)+":00–"+pad(hr+1)+":00";
+  var dk=dateKey(dayOf(selDay)),now=new Date(),nowM=now.getHours()*60+now.getMinutes(),h="";
+  daySegs(dk).forEach(function(g){
+    var label=fmtM(g.start)+"–"+fmtM(g.end),past=selDay===0&&g.end<=nowM,b=g.type==="free"?bm[dk+"_"+g.start]:null;
     if(b){
-      var mine=b.mine,seek=b.seeking&&!b.partner&&!past;
+      var key=b.id,mine=b.mine,seek=b.seeking&&!b.partner&&!past;
       var mj=null;S.joins.forEach(function(j){if(j.bid===key&&j.mine)mj=j});
       var s=(seek?'שחקן מחפש שותף · ':'תפוס · ')+esc(b.name)+(b.partner?' + '+esc(b.partner):'');
-      if(mine){s+=' (אני) <u data-x="'+hr+'">ביטול</u>'}
-      else if(isAdmin()){s+=' <u data-x="'+hr+'">ביטול</u>'}
-      else if(seek){s+=(mj&&mj.status!=='declined'?'':' <u class="ok" data-j="'+hr+'">להצטרף</u>')}
+      if(mine){s+=' (אני) <u data-x="'+g.start+'">ביטול</u>'}
+      else if(isAdmin()){s+=' <u data-x="'+g.start+'">ביטול</u>'}
+      else if(seek){s+=(mj&&mj.status!=='declined'?'':' <u class="ok" data-j="'+g.start+'">להצטרף</u>')}
       if(mj&&!mine)s+=' · '+(mj.status==='approved'?'אושרת להצטרף 🎾':mj.status==='declined'?'הבקשה נדחתה':'הבקשה ממתינה לאישור');
       h+='<div class="slot '+(seek?'seek':'busy')+(past?' past':'')+'"><span class="t">'+label+'</span><span class="tag">'+s+'</span></div>';
       if((mine||isAdmin())&&b.seeking){S.joins.forEach(function(r){if(r.bid===key&&r.status==='pending'&&r.name){
         h+='<div class="req"><span>'+esc(r.name)+' <a href="tel:'+esc(r.phone)+'">'+esc(r.phone)+'</a> רוצה להצטרף</span><span><u class="ok" data-a="'+esc(r.id)+'">אישור</u><u data-r="'+esc(r.id)+'">דחייה</u></span></div>'}})}
-    }else if(k){
-      h+='<div class="slot block'+(past?' past':'')+'"><span class="t">'+label+'</span><span class="tag">'+(k.label==="סגור"?'סגור':'חסום · '+esc(k.label))+(isAdmin()&&!past?' <u class="blu" data-ur="'+hr+'">שחרור</u>':'')+'</span></div>';
+    }else if(g.type==="block"){
+      h+='<div class="slot block'+(past?' past':'')+'"><span class="t">'+label+'</span><span class="tag">'+(g.label==="סגור"?'סגור':'<span class="lbl">'+esc(g.label)+'</span>')+(isAdmin()&&!past?' <u class="blu" data-rel="'+esc(g.recId)+'">שחרור</u>':'')+'</span></div>';
+    }else if(g.type==="gap"){
+      h+='<div class="slot hgap'+(past?' past':'')+'"><span class="t">'+label+'</span><span class="tag">קצר מדי להזמנה</span></div>';
     }else if(past){
       h+='<div class="slot busy past"><span class="t">'+label+'</span><span class="tag">עבר</span></div>';
     }else{
-      h+='<button class="slot free" data-f="'+hr+'"><span class="t">'+label+'</span><span class="tag">פנוי <u class="ok">הזמנה</u></span></button>';
+      h+='<button class="slot free" data-f="'+g.start+'"><span class="t">'+label+'</span><span class="tag">פנוי'+(g.end-g.start<60?' · '+(g.end-g.start)+' דק׳':'')+' <u class="ok">הזמנה</u></span></button>';
     }
+  });
+  if(isAdmin()){
+    S.exceptions.forEach(function(e){if(e.date!==dk||!e.released)return;
+      var r=S.recurring.filter(function(x){return x.id===e.recId})[0];if(!r)return;
+      h+='<div class="req"><span>שוחרר להיום: '+esc(r.label)+' <span dir="ltr">'+fmtM(r.from)+'–'+fmtM(r.to)+'</span></span><span><u class="ok" data-unrel="'+esc(r.id)+'">החזרה</u></span></div>'});
   }
   $("slots").innerHTML=h;
 }
@@ -340,7 +336,7 @@ function renderWanted(){
 function renderRec(){
   var h="",rs=S.recurring.slice().sort(function(a,b){return a.day-b.day||a.from-b.from});
   if(!rs.length)h='<div class="sub">אין חוגים או חסימות קבועים.</div>';
-  rs.forEach(function(r){h+='<div class="wl"><span>יום '+HDAY[r.day]+' · '+pad(r.from)+':00–'+pad(r.to)+':00 · '+esc(r.label)+'</span><u data-rd="'+esc(r.id)+'">הסרה</u></div>'});
+  rs.forEach(function(r){h+='<div class="wl"><span><span class="day">'+HDAYL[r.day]+'</span> · <span dir="ltr">'+fmtM(r.from)+'–'+fmtM(r.to)+'</span> · '+esc(r.label)+'</span><u data-rd="'+esc(r.id)+'">הסרה</u></div>'});
   $("rlist").innerHTML=h;
 }
 
@@ -401,7 +397,7 @@ function fillSel(){
   var d="",f="",t="",hs=(CFG&&CFG.hours)||DEF_HOURS,lo=24,hi=0;
   hs.forEach(function(x){if(x[0]<lo)lo=x[0];if(x[1]>hi)hi=x[1]});
   HDAYL.forEach(function(n,i){d+='<option value="'+i+'">יום '+n+'</option>'});
-  for(var h=lo;h<=hi;h++){var o='<option value="'+h+'">'+pad(h)+':00</option>';if(h<hi)f+=o;if(h>lo)t+=o}
+  for(var m=lo*60;m<=hi*60;m+=15){var o='<option value="'+m+'">'+fmtM(m)+'</option>';if(m<hi*60)f+=o;if(m>lo*60)t+=o}
   $("rDay").innerHTML=d;$("rFrom").innerHTML=f;$("rTo").innerHTML=t;
 }
 (function fillHallSel(){
@@ -413,8 +409,9 @@ function fillSel(){
 
 $("days").onclick=function(e){var b=e.target.closest("[data-d]");if(b){selDay=+b.dataset.d;if(S)render()}};
 $("slots").onclick=function(e){
-  var T=e.target,f=T.closest("[data-f]"),x=T.closest("[data-x]"),j=T.closest("[data-j]"),a=T.closest("[data-a]"),r=T.closest("[data-r]"),u=T.closest("[data-ur]");
-  if(u)releaseSlot(+u.dataset.ur);
+  var T=e.target,f=T.closest("[data-f]"),x=T.closest("[data-x]"),j=T.closest("[data-j]"),a=T.closest("[data-a]"),r=T.closest("[data-r]"),u=T.closest("[data-rel]"),ur=T.closest("[data-unrel]");
+  if(u)releaseBlock(u.dataset.rel,true);
+  else if(ur)releaseBlock(ur.dataset.unrel,false);
   else if(x)askCancel(+x.dataset.x);
   else if(j)openJoin(+j.dataset.j);
   else if(a)answer(a.dataset.a,true);
@@ -423,9 +420,10 @@ $("slots").onclick=function(e){
 };
 
 // הזמנה
-function openDlg(hr){
-  pending=hr;var d=dayOf(selDay);
-  $("dTitle").textContent=CFG.courtName+" · "+(selDay===0?"היום":"יום "+HDAY[d.getDay()]+" "+d.getDate()+"/"+(d.getMonth()+1))+" · "+pad(hr)+":00–"+pad(hr+1)+":00";
+function openDlg(start){
+  var d=dayOf(selDay),g=daySegs(dateKey(d)).filter(function(x){return x.start===start})[0];if(!g)return;
+  pending=g;
+  $("dTitle").textContent=CFG.courtName+" · "+(selDay===0?"היום":"יום "+HDAY[d.getDay()]+" "+d.getDate()+"/"+(d.getMonth()+1))+" · "+fmtM(g.start)+"–"+fmtM(g.end);
   $("fName").value=store("dt_name");$("fPhone").value=store("dt_phone");$("fRes").checked=store("dt_res")==="1";$("fSeek").checked=false;$("fRules").checked=false;
   upd();$("err").textContent="";$("dlg").showModal();
 }
@@ -439,7 +437,7 @@ $("bOk").onclick=async function(){
   if(!$("fRules").checked){$("err").textContent="נא לאשר שקראתם והבנתם את כללי ההתנהגות";return}
   $("bOk").disabled=true;
   try{
-    await api("POST","/bookings",{date:dateKey(dayOf(selDay)),hour:pending,name:name,phone:phone,resident:res,seeking:$("fSeek").checked,rules:true});
+    await api("POST","/bookings",{date:dateKey(dayOf(selDay)),start:pending.start,name:name,phone:phone,resident:res,seeking:$("fSeek").checked,rules:true});
     store("dt_name",name);store("dt_phone",phone);store("dt_res",res?"1":"0");
     $("dlg").close();
   }catch(e){$("err").textContent=e.message}
@@ -447,9 +445,9 @@ $("bOk").onclick=async function(){
 };
 
 // ביטול
-function askCancel(hr){
-  var key=bkey(dateKey(dayOf(selDay)),hr),b=bm[key];if(!b)return;
-  cancelId=key;$("cTitle").textContent="לבטל את ההזמנה של "+b.name+"?";$("cdlg").showModal();
+function askCancel(start){
+  var b=bm[dateKey(dayOf(selDay))+"_"+start];if(!b)return;
+  cancelId=b.id;$("cTitle").textContent="לבטל את ההזמנה של "+b.name+"?";$("cdlg").showModal();
 }
 $("cNo").onclick=function(){$("cdlg").close()};
 $("cYes").onclick=async function(){
@@ -459,8 +457,9 @@ $("cYes").onclick=async function(){
 };
 
 // הצטרפות לשחקן שמחפש שותף
-function openJoin(hr){
-  jTarget=bkey(dateKey(dayOf(selDay)),hr);
+function openJoin(start){
+  var b=bm[dateKey(dayOf(selDay))+"_"+start];if(!b)return;
+  jTarget=b.id;
   $("jName").value=store("dt_name");$("jPhone").value=store("dt_phone");$("jErr").textContent="";$("jdlg").showModal();
 }
 $("jCancel").onclick=function(){$("jdlg").close()};
@@ -504,8 +503,8 @@ $("aOk").onclick=async function(){
   catch(e){$("aErr").textContent=e.message}
   load();
 };
-async function releaseSlot(hr){
-  try{await api("POST","/blocks/release",{date:dateKey(dayOf(selDay)),hour:hr})}catch(e){toast(e.message)}
+async function releaseBlock(recId,released){
+  try{await api("POST","/release",{date:dateKey(dayOf(selDay)),recId:recId,released:released})}catch(e){toast(e.message)}
   load();
 }
 $("rAdm").onclick=function(){$("rErr").textContent="";renderRec();$("rdlg").showModal()};
@@ -518,7 +517,7 @@ $("rlist").onclick=async function(e){
 $("rAddBtn").onclick=async function(){
   var from=+$("rFrom").value,to=+$("rTo").value;
   if(to<=from){$("rErr").textContent="שעת הסיום צריכה להיות אחרי שעת ההתחלה";return}
-  try{await api("POST","/recurring",{day:+$("rDay").value,from:from,to:to,label:$("rLabel").value.trim()||"חוג"});$("rLabel").value="";$("rErr").textContent=""}
+  try{await api("POST","/recurring",{day:+$("rDay").value,from:from,to:to,unit:"min",label:$("rLabel").value.trim()||"חוג"});$("rLabel").value="";$("rErr").textContent=""}
   catch(e){$("rErr").textContent=e.message}
   load();
 };

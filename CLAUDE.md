@@ -58,9 +58,13 @@ The dev server never touches the real database.
 - Venues: `tennis` is the bookable court. `hall` is a read-only
   weekly schedule of classes that only the admin edits; it has no bookings.
 - Court opening hours are per weekday in `HOURS` in `api/index.js` (Sun–Thu 07–21, Fri 08–19, Sat 08–21).
-  Court recurring blocks use whole hours; hall classes use minutes from midnight in 15-minute steps.
-- Seed data (the hall's 24 classes) is written once,
-  guarded by a `hall:seed:v1` flag. Tennis is not seeded: the admin already set its blocks by hand.
+  Everything is in minutes from midnight, in 15-minute steps (older tennis blocks without `unit:'min'` are whole
+  hours and are converted on read). The server cuts each day into segments (`days[].segs` in `/api/tennis/state`):
+  blocks, and free time cut on whole hours around blocks and existing bookings, so leftovers such as 16:00–16:30
+  become shorter bookable slots (minimum 30 minutes). A booking is `{date, start}` and must match a free segment.
+- A recurring block can be released for one date (`/api/<venue>/release`), stored in `<venue>:exceptions`.
+- Seed data is written once per flag: the hall's 24 classes (`hall:seed:v1`) and the Monday youth tennis
+  practice 16:30–19:30 (`tennis:seed:v2`). Other tennis blocks were set by the admin by hand.
 - Every booking must carry `rules: true` (the user confirmed the court rules).
 - Times are always Israel time (`Asia/Jerusalem`), computed in code — the server runs in UTC.
 - The page refreshes data every 30 seconds while visible, slower when idle. Do not make it faster:

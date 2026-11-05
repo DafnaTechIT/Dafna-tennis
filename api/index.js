@@ -20,14 +20,14 @@ const HOURS = (() => {
 })();
 const MIN_OPEN = Math.min(...HOURS.map(h => h[0])), MAX_CLOSE = Math.max(...HOURS.map(h => h[1]));
 
-const COURT_COLL = ['bookings', 'joins', 'wanted', 'blocks', 'recurring'];
+const COURT_COLL = ['bookings', 'joins', 'wanted', 'exceptions', 'recurring'];
 const VENUES = {
-  // Tennis is not seeded: its 14:00–16:00 blocks (and a real class in that slot) were already set up by the admin.
+  // Tennis blocks were set up by the admin by hand; only later additions are seeded (see TENNIS_SEED_V2).
   tennis: {
     kind: 'court', prefix: 'tennis:', name: 'מגרש הטניס', courtName: process.env.COURT_NAME || 'מגרש הטניס',
-    price: +process.env.GUEST_PRICE || 100, seed: null,
+    price: +process.env.GUEST_PRICE || 100, seeds: [['seed:v2', () => TENNIS_SEED_V2]],
   },
-  hall: { kind: 'hall', prefix: 'hall:', name: 'אולם הספורט', coll: ['recurring', 'exceptions'], seed: 'hall' },
+  hall: { kind: 'hall', prefix: 'hall:', name: 'אולם הספורט', coll: ['recurring', 'exceptions'], seeds: [['seed:v1', () => HALL_SEED]] },
 };
 const MAX_PER_DAY = +process.env.MAX_PER_DAY || 0;
 
@@ -62,6 +62,14 @@ const HALL_SEED = [
   [6, T(20, 30), T(22, 30), 'פוטסל בוגרים דפנה'],
 ].map(([day, from, to, label], i) => ['seed-' + String(i + 1).padStart(2, '0'), { day, from, to, label }]);
 
+// Monday youth tennis practice (requested Nov 2026), in minutes from midnight.
+const TENNIS_SEED_V2 = [
+  [1, T(16, 30), T(17, 15), 'אימון טניס – כיתות א׳–ב׳'],
+  [1, T(17, 15), T(18, 0), 'אימון טניס – כיתות ג׳–ד׳'],
+  [1, T(18, 0), T(18, 45), 'אימון טניס – כיתות ה׳–ו׳'],
+  [1, T(18, 45), T(19, 30), 'אימון טניס – נוער'],
+].map(([day, from, to, label], i) => ['seed2-' + (i + 1), { day, from, to, unit: 'min', label }]);
+
 // ---------- Redis (Upstash REST) ----------
 async function redis(path, body) {
   const r = await fetch(REDIS_URL.replace(/\/$/, '') + path, {
@@ -85,14 +93,16 @@ const hashToObj = arr => { const o = {}; for (let i = 0; i < (arr || []).length;
 const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 function ilNow() {
   const p = {}; for (const x of fmt.formatToParts(new Date())) p[x.type] = x.value;
-  return { y: +p.year, m: +p.month, d: +p.day, h: +p.hour };
+  return { y: +p.year, m: +p.month, d: +p.day, h: +p.hour, min: +p.minute };
 }
 const dayStr = i => { const n = ilNow(); return new Date(Date.UTC(n.y, n.m - 1, n.d + i)).toISOString().slice(0, 10); };
-const nowHour = () => ilNow().h;
+const nowMin = () => { const n = ilNow(); return n.h * 60 + n.min; };
 const weekday = date => new Date(date + 'T12:00:00Z').getUTCDay();
 
 const pad = n => (n < 10 ? '0' : '') + n;
-const bkey = (date, hour) => date + '_' + pad(hour);
+// Booking id: date_HH for whole hours (the original format), date_HHMM otherwise.
+const bkey = (date, start) => date + '_' + pad(Math.floor(start / 60)) + (start % 60 ? pad(start % 60) : '');
+const fmtM = m => pad(Math.floor(m / 60)) + ':' + pad(m % 60);
 const clean = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, n);
 const digits = s => String(s).replace(/\D/g, '');
 const newId = p => p + Date.now().toString(36) + crypto.randomBytes(3).toString('hex');
@@ -108,11 +118,9 @@ const seeded = {};
 async function ensureSeed(vname) {
   if (seeded[vname]) return;
   const V = VENUES[vname];
-  if (!V.seed) { seeded[vname] = true; return; }
-  const first = await cmd('SET', V.prefix + 'seed:v1', '1', 'NX');
-  if (first === 'OK') {
-    const rows = HALL_SEED;
-    await pipeline(rows.map(([id, r]) => ['HSETNX', V.prefix + 'recurring', id, JSON.stringify(r)]));
+  for (const [flag, rows] of V.seeds || []) {
+    const first = await cmd('SET', V.prefix + flag, '1', 'NX');
+    if (first === 'OK') await pipeline(rows().map(([id, r]) => ['HSETNX', V.prefix + 'recurring', id, JSON.stringify(r)]));
   }
   seeded[vname] = true;
 }
@@ -141,22 +149,60 @@ function configFor(vname) {
 }
 
 // ---------- court (tennis) ----------
-function blockInfo(db, date, hour) {
-  const bk = db.blocks[bkey(date, hour)];
-  if (bk) return bk.released ? null : { label: bk.label || 'חוג' };
-  const wd = weekday(date);
-  for (const id in db.recurring) {
-    const r = db.recurring[id];
-    if (r.day === wd && hour >= r.from && hour < r.to) return { label: r.label || 'חוג' };
+// Recurring blocks: older entries are in whole hours, newer ones carry unit:'min' (minutes from midnight).
+const recMin = r => r.unit === 'min' ? { from: r.from, to: r.to } : { from: r.from * 60, to: r.to * 60 };
+const bStart = b => Number.isInteger(b.start) ? b.start : b.hour * 60;
+const bEnd = b => Number.isInteger(b.end) ? b.end : bStart(b) + 60;
+const MIN_SLOT = 30; // free pieces shorter than this are shown but not bookable
+
+// The day as an ordered list of segments: blocks (recurring, not released that date) and free time.
+// Free time is cut on whole hours, so a normal day still offers 60-minute slots; leftovers around
+// half-hour blocks become shorter slots (e.g. 16:00–16:30).
+function daySegments(db, date) {
+  const wd = weekday(date), [oh, ch] = HOURS[wd], open = oh * 60, close = ch * 60;
+  const blocks = Object.entries(db.recurring)
+    .filter(([id, r]) => r.day === wd && !(db.exceptions[date + '_' + id] || {}).released)
+    .map(([id, r]) => Object.assign({ id, label: r.label || 'חוג' }, recMin(r)))
+    .filter(r => r.to > open && r.from < close)
+    .sort((x, y) => x.from - y.from || x.to - y.to);
+  const segs = [];
+  const cut = (a, z) => {
+    for (let t = a; t < z;) {
+      const e = Math.min(z, (Math.floor(t / 60) + 1) * 60);
+      segs.push({ start: t, end: e, type: e - t >= MIN_SLOT ? 'free' : 'gap' });
+      t = e;
+    }
+  };
+  // Existing bookings keep their exact times; the free time around them is cut on whole hours.
+  const booked = Object.values(db.bookings).filter(b => b.date === date)
+    .map(b => ({ start: bStart(b), end: bEnd(b) })).sort((x, y) => x.start - y.start);
+  const free = (a, z) => {
+    let t = a;
+    for (const b of booked) {
+      if (b.end <= t || b.start >= z) continue;
+      if (b.start > t) cut(t, b.start);
+      segs.push({ start: Math.max(b.start, t), end: Math.min(b.end, z), type: 'free' });
+      t = Math.min(b.end, z);
+    }
+    if (t < z) cut(t, z);
+  };
+  let cur = open;
+  for (const r of blocks) {
+    const from = Math.max(r.from, open), to = Math.min(r.to, close);
+    if (to <= cur) continue;
+    if (from > cur) free(cur, from);
+    segs.push({ start: Math.max(from, cur), end: to, type: 'block', label: r.label, recId: r.id });
+    cur = to;
   }
-  return null;
+  if (cur < close) free(cur, close);
+  return segs;
 }
 
 function courtState(db, cid) {
   const admin = db.admin, today = dayStr(0);
   const bookings = Object.values(db.bookings).filter(b => b.date >= today).map(b => {
     const mine = !!cid && b.cid === cid, see = mine || admin;
-    return { id: b.id, date: b.date, hour: b.hour, name: b.name, seeking: !!b.seeking, partner: b.partner || '', mine, phone: see ? b.phone : undefined, resident: see ? b.resident : undefined };
+    return { id: b.id, date: b.date, start: bStart(b), end: bEnd(b), name: b.name, seeking: !!b.seeking, partner: b.partner || '', mine, phone: see ? b.phone : undefined, resident: see ? b.resident : undefined };
   });
   const joins = Object.values(db.joins).filter(j => db.bookings[j.bid]).flatMap(j => {
     const b = db.bookings[j.bid], mine = !!cid && j.cid === cid, owner = !!cid && b.cid === cid;
@@ -164,20 +210,14 @@ function courtState(db, cid) {
     return [{ id: j.id, bid: j.bid, status: j.status, mine, name: (owner || admin) ? j.name : undefined, phone: (owner || admin) ? j.phone : undefined }];
   });
   const wanted = Object.values(db.wanted).map(w => ({ id: w.id, name: w.name, phone: w.phone, note: w.note, createdAt: w.createdAt, mine: !!cid && w.id === cid }));
-  const blocks = Object.values(db.blocks).filter(b => b.date >= today).map(b => ({ date: b.date, hour: b.hour, label: b.label, released: !!b.released }));
-  const recurring = Object.entries(db.recurring).map(([id, r]) => Object.assign({ id }, r));
-  return { me: { admin }, bookings, joins, wanted, blocks, recurring };
+  const recurring = Object.entries(db.recurring).map(([id, r]) => Object.assign({ id, day: r.day, label: r.label }, recMin(r)));
+  const exceptions = Object.values(db.exceptions).filter(e => e.date >= today);
+  const days = [];
+  for (let i = 0; i <= DAYS_AHEAD; i++) { const date = dayStr(i); days.push({ date, segs: daySegments(db, date) }); }
+  return { me: { admin }, bookings, joins, wanted, recurring, exceptions, days };
 }
 
-function validSlot(b) {
-  const hour = b.hour;
-  need(/^\d{4}-\d{2}-\d{2}$/.test(b.date || ''), 400, 'תאריך לא תקין');
-  need(Number.isInteger(hour), 400, 'שעה לא תקינה');
-  need(b.date >= dayStr(0) && b.date <= dayStr(DAYS_AHEAD), 400, 'אפשר להזמין עד ' + DAYS_AHEAD + ' ימים קדימה');
-  const [open, close] = HOURS[weekday(b.date)];
-  need(hour >= open && hour < close, 400, 'השעה מחוץ לשעות הפעילות');
-  need(!(b.date === dayStr(0) && hour < nowHour()), 400, 'השעה הזו כבר עברה');
-}
+const validDate = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '') && d >= dayStr(0) && d <= dayStr(DAYS_AHEAD);
 
 async function courtRoute(V, req, body, sub, cid, db) {
   const m = req.method, admin = db.admin;
@@ -186,17 +226,26 @@ async function courtRoute(V, req, body, sub, cid, db) {
 
   if (m === 'POST' && sub === '/bookings') {
     need(cid, 400, 'מזהה מכשיר חסר');
-    const b = { date: body.date, hour: body.hour };
-    validSlot(b);
+    const date = body.date;
+    // `start` is minutes from midnight; older pages send a whole `hour`.
+    const start = Number.isInteger(body.start) ? body.start : Number.isInteger(body.hour) ? body.hour * 60 : null;
+    need(/^\d{4}-\d{2}-\d{2}$/.test(date || ''), 400, 'תאריך לא תקין');
+    need(start !== null, 400, 'שעה לא תקינה');
+    need(validDate(date), 400, 'אפשר להזמין עד ' + DAYS_AHEAD + ' ימים קדימה');
+    const [oh, ch] = HOURS[weekday(date)];
+    need(start >= oh * 60 && start < ch * 60, 400, 'השעה מחוץ לשעות הפעילות');
+    const seg = daySegments(db, date).find(x => x.start <= start && start < x.end);
+    need(seg && seg.type !== 'block', 409, 'השעה הזו חסומה');
+    need(seg.type === 'free' && seg.start === start, 400, 'שעה לא תקינה');
+    need(!(date === dayStr(0) && seg.end <= nowMin()), 400, 'השעה הזו כבר עברה');
     const name = clean(body.name, 60), phone = clean(body.phone, 20);
     need(name.length >= 2, 400, 'נא להזין שם');
     need(digits(phone).length >= 9, 400, 'נא להזין טלפון תקין');
     need(body.rules === true, 400, 'יש לאשר שקראתם את כללי ההתנהגות');
-    need(!blockInfo(db, b.date, b.hour), 409, 'השעה הזו חסומה');
-    const id = bkey(b.date, b.hour);
-    need(!db.bookings[id], 409, 'השעה הזו כבר נתפסה');
-    if (MAX_PER_DAY) need(Object.values(db.bookings).filter(x => x.cid === cid && x.date === b.date).length < MAX_PER_DAY, 409, 'הגעתם למכסת ההזמנות ליום');
-    const rec = { id, date: b.date, hour: b.hour, name, phone, resident: !!body.resident, seeking: !!body.seeking, partner: '', rules: true, cid, createdAt: Date.now() };
+    need(!Object.values(db.bookings).some(x => x.date === date && bStart(x) < seg.end && bEnd(x) > seg.start), 409, 'השעה הזו כבר נתפסה');
+    if (MAX_PER_DAY) need(Object.values(db.bookings).filter(x => x.cid === cid && x.date === date).length < MAX_PER_DAY, 409, 'הגעתם למכסת ההזמנות ליום');
+    const id = bkey(date, seg.start);
+    const rec = { id, date, start: seg.start, end: seg.end, hour: Math.floor(seg.start / 60), name, phone, resident: !!body.resident, seeking: !!body.seeking, partner: '', rules: true, cid, createdAt: Date.now() };
     // HSETNX is atomic: two people racing for the same slot can't both win.
     const won = await cmd('HSETNX', V.prefix + 'bookings', id, JSON.stringify(rec));
     need(won === 1, 409, 'השעה הזו כבר נתפסה');
@@ -253,26 +302,30 @@ async function courtRoute(V, req, body, sub, cid, db) {
   }
 
   // admin-only
-  if (sub.startsWith('/blocks') || sub.startsWith('/recurring')) need(admin, 403, 'פעולה למנהל בלבד');
-  if (m === 'POST' && sub === '/blocks') {
-    validSlot(body);
-    await pipeline([hset(V, 'blocks', bkey(body.date, body.hour), { date: body.date, hour: body.hour, label: clean(body.label, 40) || 'חוג' })]);
-    return { ok: true };
-  }
-  if (m === 'POST' && sub === '/blocks/release') {
-    validSlot(body);
-    await pipeline([hset(V, 'blocks', bkey(body.date, body.hour), { date: body.date, hour: body.hour, released: true })]);
+  need(admin, 403, 'פעולה למנהל בלבד');
+  if (m === 'POST' && sub === '/release') {
+    // Release (or restore) a recurring block on a single date.
+    const date = body.date, recId = String(body.recId || '');
+    need(validDate(date), 400, 'תאריך לא תקין');
+    const rec = db.recurring[recId]; need(rec, 404, 'החסימה לא נמצאה');
+    need(rec.day === weekday(date), 400, 'החסימה לא חלה ביום הזה');
+    const key = date + '_' + recId;
+    await pipeline([body.released === false ? hdel(V, 'exceptions', key) : hset(V, 'exceptions', key, { date, recId, released: true })]);
     return { ok: true };
   }
   if (m === 'POST' && sub === '/recurring') {
-    const day = body.day, from = body.from, to = body.to;
+    const day = body.day;
+    // Minutes (15-minute steps) with unit:'min'; whole hours are still accepted.
+    const k = body.unit === 'min' ? 1 : 60, from = body.from * k, to = body.to * k;
     need(Number.isInteger(day) && day >= 0 && day <= 6, 400, 'יום לא תקין');
-    need(Number.isInteger(from) && Number.isInteger(to) && from >= MIN_OPEN && to <= MAX_CLOSE && to > from, 400, 'שעות לא תקינות');
-    await pipeline([hset(V, 'recurring', newId('r'), { day, from, to, label: clean(body.label, 40) || 'חוג' })]);
+    need(Number.isInteger(from) && Number.isInteger(to) && from % 15 === 0 && to % 15 === 0 && from >= MIN_OPEN * 60 && to <= MAX_CLOSE * 60 && to > from, 400, 'שעות לא תקינות');
+    await pipeline([hset(V, 'recurring', newId('r'), { day, from, to, unit: 'min', label: clean(body.label, 60) || 'חוג' })]);
     return { ok: true };
   }
   if ((r = sub.match(/^\/recurring\/([\w-]+)$/)) && m === 'DELETE') {
-    await pipeline([hdel(V, 'recurring', r[1])]); return { ok: true };
+    const ops = [hdel(V, 'recurring', r[1])];
+    for (const k in db.exceptions) if (db.exceptions[k].recId === r[1]) ops.push(hdel(V, 'exceptions', k));
+    await pipeline(ops); return { ok: true };
   }
   throw new HttpErr(404, 'לא נמצא');
 }
@@ -331,11 +384,9 @@ async function prune() {
   let removed = 0;
   for (const vname of Object.keys(VENUES)) {
     const V = VENUES[vname], db = await loadDb(V), ops = [];
-    if (V.kind === 'hall') {
-      for (const k in db.exceptions) if (db.exceptions[k].date < today) ops.push(hdel(V, 'exceptions', k));
-    } else {
+    for (const k in db.exceptions) if (db.exceptions[k].date < today) ops.push(hdel(V, 'exceptions', k));
+    if (V.kind !== 'hall') {
       for (const k in db.bookings) if (db.bookings[k].date < today) { ops.push(hdel(V, 'bookings', k)); delete db.bookings[k]; }
-      for (const k in db.blocks) if (db.blocks[k].date < today) ops.push(hdel(V, 'blocks', k));
       for (const k in db.joins) if (!db.bookings[db.joins[k].bid]) ops.push(hdel(V, 'joins', k));
     }
     await pipeline(ops); removed += ops.length;
@@ -417,4 +468,4 @@ module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.end(JSON.stringify(out));
 };
-module.exports._test = { dayStr, nowHour, blockInfo, HOURS };
+module.exports._test = { dayStr, nowMin, daySegments, HOURS, fmtM };
