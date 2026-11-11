@@ -20,14 +20,14 @@ const HOURS = (() => {
 })();
 const MIN_OPEN = Math.min(...HOURS.map(h => h[0])), MAX_CLOSE = Math.max(...HOURS.map(h => h[1]));
 
-const COURT_COLL = ['bookings', 'joins', 'wanted', 'exceptions', 'recurring'];
+const COURT_COLL = ['bookings', 'joins', 'wanted', 'exceptions', 'recurring', 'contacts'];
 const VENUES = {
   // Tennis blocks were set up by the admin by hand; only later additions are seeded (see TENNIS_SEED_V2).
   tennis: {
     kind: 'court', prefix: 'tennis:', name: 'מגרש הטניס', courtName: process.env.COURT_NAME || 'מגרש הטניס',
     price: +process.env.GUEST_PRICE || 100, seeds: [['seed:v2', () => TENNIS_SEED_V2]],
   },
-  hall: { kind: 'hall', prefix: 'hall:', name: 'אולם הספורט', coll: ['recurring', 'exceptions'], seeds: [['seed:v1', () => HALL_SEED]] },
+  hall: { kind: 'hall', prefix: 'hall:', name: 'אולם הספורט', coll: ['recurring', 'exceptions', 'contacts'], seeds: [['seed:v1', () => HALL_SEED]] },
 };
 const MAX_PER_DAY = +process.env.MAX_PER_DAY || 0;
 
@@ -214,7 +214,7 @@ function courtState(db, cid) {
   const exceptions = Object.values(db.exceptions).filter(e => e.date >= today);
   const days = [];
   for (let i = 0; i <= DAYS_AHEAD; i++) { const date = dayStr(i); days.push({ date, segs: daySegments(db, date) }); }
-  return { me: { admin }, bookings, joins, wanted, recurring, exceptions, days };
+  return { me: { admin }, bookings, joins, wanted, recurring, exceptions, days, contacts: contactList(db) };
 }
 
 const validDate = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '') && d >= dayStr(0) && d <= dayStr(DAYS_AHEAD);
@@ -301,6 +301,8 @@ async function courtRoute(V, req, body, sub, cid, db) {
     await pipeline([hdel(V, 'wanted', r[1])]); return { ok: true };
   }
 
+  if (sub.startsWith('/contacts')) return contactsRoute(V, m, body, sub, db);
+
   // admin-only
   need(admin, 403, 'פעולה למנהל בלבד');
   if (m === 'POST' && sub === '/release') {
@@ -337,6 +339,7 @@ function hallState(db) {
     me: { admin: db.admin },
     recurring: Object.entries(db.recurring).map(([id, r]) => Object.assign({ id }, r)),
     exceptions: Object.values(db.exceptions).filter(e => e.date >= today),
+    contacts: contactList(db),
   };
 }
 
@@ -352,6 +355,7 @@ async function hallRoute(V, req, body, sub, db) {
   const m = req.method;
   let r;
   if (m === 'GET' && sub === '/state') return hallState(db);
+  if (sub.startsWith('/contacts')) return contactsRoute(V, m, body, sub, db);
   need(db.admin, 403, 'פעולה למנהל בלבד');
   if (m === 'POST' && sub === '/recurring') {
     await pipeline([hset(V, 'recurring', newId('h'), validClass(body))]);
@@ -374,6 +378,34 @@ async function hallRoute(V, req, body, sub, db) {
     const key = date + '_' + recId;
     await pipeline([body.released === false ? hdel(V, 'exceptions', key) : hset(V, 'exceptions', key, { date, recId, released: true })]);
     return { ok: true };
+  }
+  throw new HttpErr(404, 'לא נמצא');
+}
+
+// ---------- contacts (people who can open the court / hall) ----------
+// Stored only in the database (the repository is public); managed by the admin in the app.
+function contactList(db) {
+  return Object.entries(db.contacts || {})
+    .map(([id, c]) => ({ id, name: c.name, phone: c.phone, note: c.note || '', order: c.order || 0 }))
+    .sort((a, b) => a.order - b.order);
+}
+function validContact(body) {
+  const name = clean(body.name, 60), phone = clean(body.phone, 20), note = clean(body.note, 60);
+  need(name.length >= 2, 400, 'נא להזין שם');
+  need(digits(phone).length >= 9, 400, 'נא להזין טלפון תקין');
+  return { name, phone, note };
+}
+async function contactsRoute(V, m, body, sub, db) {
+  need(db.admin, 403, 'פעולה למנהל בלבד');
+  let r;
+  if (m === 'POST' && sub === '/contacts') {
+    await pipeline([hset(V, 'contacts', newId('c'), Object.assign(validContact(body), { order: Date.now() }))]);
+    return { ok: true };
+  }
+  if ((r = sub.match(/^\/contacts\/([\w-]+)$/))) {
+    const c = (db.contacts || {})[r[1]]; need(c, 404, 'איש הקשר לא נמצא');
+    if (m === 'POST') { await pipeline([hset(V, 'contacts', r[1], Object.assign(validContact(body), { order: c.order || 0 }))]); return { ok: true }; }
+    if (m === 'DELETE') { await pipeline([hdel(V, 'contacts', r[1])]); return { ok: true }; }
   }
   throw new HttpErr(404, 'לא נמצא');
 }

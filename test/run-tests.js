@@ -106,6 +106,23 @@ const bk = (date, hour, extra) => Object.assign({ date, hour, name: 'Test', phon
   check('hall: admin deletes a class', (await call('DELETE', '/api/hall/recurring/' + mon.id, A, null, tok)).status === 200);
   check('hall: 24 classes after add+delete', (await call('GET', '/api/hall/state')).json.recurring.length === 24);
 
+  // --- contacts (people who can open) ---
+  check('contacts: empty by default', (await call('GET', '/api/tennis/state')).json.contacts.length === 0);
+  check('contacts: add needs admin', (await call('POST', '/api/tennis/contacts', A, { name: 'Opener One', phone: '0501111111' })).status === 403);
+  check('contacts: bad phone rejected', (await call('POST', '/api/tennis/contacts', A, { name: 'Opener One', phone: '123' }, tok)).status === 400);
+  check('contacts: admin adds', (await call('POST', '/api/tennis/contacts', A, { name: 'Opener One', phone: '0501111111', note: 'ערבים' }, tok)).status === 200);
+  check('contacts: admin adds a second', (await call('POST', '/api/tennis/contacts', A, { name: 'Opener Two', phone: '0502222222' }, tok)).status === 200);
+  const cs = (await call('GET', '/api/tennis/state', Z)).json.contacts;
+  check('contacts: visible to everyone, in order', cs.length === 2 && cs[0].name === 'Opener One' && cs[0].phone === '0501111111' && cs[0].note === 'ערבים');
+  check('contacts: edit needs admin', (await call('POST', '/api/tennis/contacts/' + cs[0].id, A, { name: 'X Y', phone: '0503333333' })).status === 403);
+  check('contacts: admin edits', (await call('POST', '/api/tennis/contacts/' + cs[0].id, A, { name: 'Opener Uno', phone: '0503333333' }, tok)).status === 200);
+  const cs2 = (await call('GET', '/api/tennis/state')).json.contacts;
+  check('contacts: edit keeps order', cs2[0].name === 'Opener Uno' && cs2[0].phone === '0503333333');
+  check('contacts: admin deletes', (await call('DELETE', '/api/tennis/contacts/' + cs[1].id, A, null, tok)).status === 200);
+  check('contacts: hall has its own list', (await call('GET', '/api/hall/state')).json.contacts.length === 0);
+  check('contacts: hall admin adds', (await call('POST', '/api/hall/contacts', A, { name: 'Hall Opener', phone: '0504444444' }, tok)).status === 200);
+  check('contacts: hall list', (await call('GET', '/api/hall/state')).json.contacts.length === 1);
+
   check('cron prune runs', (await call('GET', '/api/cron/prune')).json.ok === true);
 
   console.log(failed ? `\n${failed} test(s) FAILED` : '\nAll tests passed');

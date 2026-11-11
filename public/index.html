@@ -132,6 +132,11 @@ dialog details.rules summary{font-size:.9rem}
 .wl u.edit{background:var(--accent)}
 .wl .day{font-weight:700}
 .frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* אנשי קשר לפתיחה */
+.ct{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);margin-bottom:8px;box-shadow:var(--shadow-card)}
+.ct .nm{font-weight:700}
+.ct .nt{display:block;font-size:13px;color:var(--mute)}
+.ct a.call{flex-shrink:0;text-decoration:none;background:var(--accent);color:#fff;border-radius:var(--radius-sm);padding:8px 12px;font-weight:700;font-size:14px;direction:ltr}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -168,6 +173,13 @@ dialog details.rules summary{font-size:.9rem}
     <div class="legend"><span><i class="dot" style="background:var(--blue)"></i>חוג / קבוצה</span><span><i class="dot" style="background:var(--line)"></i>ללא חוג</span></div>
     <div id="htl"></div>
     <button class="btn" id="hAdm" type="button" style="width:100%;margin-top:10px" hidden>⚙ ניהול לוח האולם (מנהל)</button>
+  </section>
+
+  <section id="openers" hidden>
+    <h2 id="oTitle">🔑 צריכים שיפתחו לכם?</h2>
+    <p class="sub" id="oSub"></p>
+    <div id="olist"></div>
+    <button class="btn" id="oAdm" type="button" style="width:100%" hidden>⚙ עריכת אנשי קשר לפתיחה (מנהל)</button>
   </section>
 
   <div class="note" id="note"></div>
@@ -227,6 +239,18 @@ dialog details.rules summary{font-size:.9rem}
   <div class="btns"><button class="btn" id="hClose" type="button">סגירה</button><button class="btn" id="hCancelEdit" type="button" hidden>ביטול עריכה</button><button class="btn pri" id="hSave" type="button">הוספה</button></div>
 </dialog>
 
+<dialog id="odlg">
+  <b>אנשי קשר לפתיחה</b>
+  <p class="sub">מוצגים לכולם בעמוד, לפי הסדר שבו נוספו. הטלפון יהיה גלוי לכל מי שפותח את האפליקציה.</p>
+  <div id="oElist"></div>
+  <b id="oFormTitle" style="display:block;margin-top:14px">הוספת איש קשר</b>
+  <label for="oName">שם</label><input type="text" id="oName">
+  <label for="oPhone">טלפון</label><input type="tel" id="oPhone" dir="ltr">
+  <label for="oNote">הערה (לא חובה)</label><input type="text" id="oNote" placeholder="למשל: בערבים ובסופי שבוע">
+  <div class="err" id="oErr"></div>
+  <div class="btns"><button class="btn" id="oClose" type="button">סגירה</button><button class="btn" id="oCancelEdit" type="button" hidden>ביטול עריכה</button><button class="btn pri" id="oSave" type="button">הוספה</button></div>
+</dialog>
+
 <dialog id="adlg">
   <b>כניסת מנהל</b>
   <label for="aPass">סיסמה</label><input type="text" id="aPass" style="-webkit-text-security:disc" autocomplete="off" dir="ltr">
@@ -245,8 +269,8 @@ var HDAY=["א׳","ב׳","ג׳","ד׳","ה׳","ו׳","ש׳"];
 var HDAYL=["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
 var RULES=["הכניסה בנעלי ספורט בלבד","אין להכניס אופניים, קורקינטים או כלי רכב","אין להכניס מזון, מסטיקים או כלי זכוכית","יש לשמור על הניקיון ועל ציוד המגרש","יש לכבד את המשתמשים ולהימנע מרעש מיותר","בסיום הפעילות יש לסגור את השער"];
 var VEN={
-  tennis:{title:"מגרש הטניס 🎾",sub:"הזמנת שעות למגרש",p:"הזמנה של 60 דקות, עד שבוע מראש. חינם לתושבי דפנה."},
-  hall:{title:"אולם הספורט 🏀",sub:"לוח חוגים וקבוצות",p:"החוגים והקבוצות באולם השבוע. הלוח לצפייה בלבד, ואי אפשר לשריין בו שעות."}
+  tennis:{title:"מגרש הטניס 🎾",sub:"הזמנת שעות למגרש",p:"הזמנה של 60 דקות, עד שבוע מראש. חינם לתושבי דפנה.",open:"בעלי הרשאה לפתוח את המגרש. אם אין מענה, נסו את הבא ברשימה."},
+  hall:{title:"אולם הספורט 🏀",sub:"לוח חוגים וקבוצות",p:"החוגים והקבוצות באולם השבוע. הלוח לצפייה בלבד, ואי אפשר לשריין בו שעות.",open:"בעלי הרשאה לפתוח את האולם. אם אין מענה, נסו את הבא ברשימה."}
 };
 var DEF_HOURS=[[7,21],[7,21],[7,21],[7,21],[7,21],[8,19],[8,21]];
 var CFGS={},STATE={};
@@ -367,12 +391,32 @@ function renderHList(){
   $("hlist").innerHTML=h;
 }
 
+// ---- אנשי קשר לפתיחה ----
+var oEditId=null;
+function telHref(p){return "tel:"+String(p).replace(/[^\d+]/g,"")}
+function renderOpeners(){
+  var cs=(S&&S.contacts)||[],h="";
+  cs.forEach(function(c){h+='<div class="ct"><span><span class="nm">'+esc(c.name)+'</span>'+(c.note?'<span class="nt">'+esc(c.note)+'</span>':'')+'</span><a class="call" href="'+esc(telHref(c.phone))+'">📞 '+esc(c.phone)+'</a></div>'});
+  if(!cs.length)h='<div class="sub">עוד לא נוספו אנשי קשר.</div>';
+  $("olist").innerHTML=h;
+  $("oSub").textContent=VEN[V].open;
+  $("openers").hidden=!cs.length&&!isAdmin();
+  $("oAdm").hidden=!isAdmin();
+  if($("odlg").open)renderOEdit();
+}
+function renderOEdit(){
+  var cs=(S&&S.contacts)||[],h="";
+  if(!cs.length)h='<div class="sub">אין אנשי קשר.</div>';
+  cs.forEach(function(c){h+='<div class="wl"><span><b>'+esc(c.name)+'</b> · <span dir="ltr" style="white-space:nowrap">'+esc(c.phone)+'</span>'+(c.note?' · '+esc(c.note):'')+'</span><span><u class="edit" data-oe="'+esc(c.id)+'">עריכה</u><u data-od="'+esc(c.id)+'">הסרה</u></span></div>'});
+  $("oElist").innerHTML=h;
+}
 function render(){
   renderDays();
   var hall=V==="hall";
   $("court").hidden=hall;$("hall").hidden=!hall;
   if(hall){renderHall();if($("hdlg").open)renderHList();$("hAdm").hidden=!isAdmin()}
   else{indexCourt();renderSlots();renderWanted();renderRec();$("rAdm").hidden=!isAdmin()}
+  renderOpeners();
   $("aBtn").textContent=isAdmin()?"יציאה ממצב מנהל":"כניסת מנהל";
   if($("note").textContent.indexOf("אין חיבור")===0)setNote();
 }
@@ -386,7 +430,7 @@ function setVenue(v){
   var want=v==="tennis"?"":"#"+v;
   if(location.hash!==want){try{history.replaceState(null,"",location.pathname+location.search+want)}catch(_){location.hash=want}}
   setNote();
-  if(S&&CFG)render();else{$("slots").innerHTML="";$("htl").innerHTML="";$("court").hidden=v==="hall";$("hall").hidden=v!=="hall";renderDays()}
+  if(S&&CFG)render();else{$("slots").innerHTML="";$("htl").innerHTML="";$("openers").hidden=true;$("court").hidden=v==="hall";$("hall").hidden=v!=="hall";renderDays()}
   if(!CFG||CFG.kind!=="hall")fillSel();
   load();
 }
@@ -546,6 +590,27 @@ $("hSave").onclick=async function(){
   if(label.length<2){$("hErr").textContent="נא להזין שם לחוג";return}
   try{await api("POST","/recurring"+(hEditId?"/"+encodeURIComponent(hEditId):""),{day:+$("hDay").value,from:from,to:to,label:label});resetHForm()}
   catch(er){$("hErr").textContent=er.message}
+  load();
+};
+
+// מנהל: אנשי קשר לפתיחה
+function resetOForm(){oEditId=null;$("oName").value="";$("oPhone").value="";$("oNote").value="";$("oErr").textContent="";$("oFormTitle").textContent="הוספת איש קשר";$("oSave").textContent="הוספה";$("oCancelEdit").hidden=true}
+$("oAdm").onclick=function(){resetOForm();renderOEdit();$("odlg").showModal()};
+$("oClose").onclick=function(){$("odlg").close()};
+$("oCancelEdit").onclick=resetOForm;
+$("oElist").onclick=async function(e){
+  var ed=e.target.closest("[data-oe]"),del=e.target.closest("[data-od]");
+  if(ed){var c=S.contacts.filter(function(x){return x.id===ed.dataset.oe})[0];if(!c)return;
+    oEditId=c.id;$("oName").value=c.name;$("oPhone").value=c.phone;$("oNote").value=c.note||"";
+    $("oFormTitle").textContent="עריכת איש קשר";$("oSave").textContent="שמירה";$("oCancelEdit").hidden=false;$("oErr").textContent="";$("oName").focus();return}
+  if(del){try{await api("DELETE","/contacts/"+encodeURIComponent(del.dataset.od));if(oEditId===del.dataset.od)resetOForm()}catch(er){$("oErr").textContent=er.message}load()}
+};
+$("oSave").onclick=async function(){
+  var name=$("oName").value.trim(),phone=$("oPhone").value.trim();
+  if(name.length<2){$("oErr").textContent="נא להזין שם";return}
+  if(phone.replace(/\D/g,"").length<9){$("oErr").textContent="נא להזין מספר טלפון תקין";return}
+  try{await api("POST","/contacts"+(oEditId?"/"+encodeURIComponent(oEditId):""),{name:name,phone:phone,note:$("oNote").value.trim()});resetOForm()}
+  catch(er){$("oErr").textContent=er.message}
   load();
 };
 

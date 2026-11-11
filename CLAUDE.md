@@ -63,6 +63,8 @@ The dev server never touches the real database.
   blocks, and free time cut on whole hours around blocks and existing bookings, so leftovers such as 16:00–16:30
   become shorter bookable slots (minimum 30 minutes). A booking is `{date, start}` and must match a free segment.
 - A recurring block can be released for one date (`/api/<venue>/release`), stored in `<venue>:exceptions`.
+- "צריכים שיפתחו לכם?" contacts (people allowed to open the court / hall) live in `<venue>:contacts`, managed by the
+  admin in the app (`/api/<venue>/contacts`). Never put their names or numbers in the code — the repo is public.
 - Seed data is written once per flag: the hall's 24 classes (`hall:seed:v1`) and the Monday youth tennis
   practice 16:30–19:30 (`tennis:seed:v2`). Other tennis blocks were set by the admin by hand.
 - Every booking must carry `rules: true` (the user confirmed the court rules).
